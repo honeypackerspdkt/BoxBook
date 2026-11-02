@@ -189,6 +189,8 @@ export function OrderDetail({ id }: { id: string }) {
         }
       />
       <Page>
+        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_23rem] lg:items-start lg:gap-8">
+        <div>
         <div className="mb-4 flex items-center justify-between">
           <StatusChip s={o.status} />
           <span className="text-[13px] text-muted-foreground">{fmtDate(o.date)}</span>
@@ -279,6 +281,8 @@ export function OrderDetail({ id }: { id: string }) {
           </div>
         </Section>
 
+        </div>
+        <div>
         <Section title="Amount">
           <dl className="card tnum space-y-2 p-4 text-[14px]">
             <Line k="Subtotal" v={money(t.subtotal, cur)} />
@@ -347,6 +351,8 @@ export function OrderDetail({ id }: { id: string }) {
         <button className="btn-danger mt-3 w-full" onClick={() => setDelOrder(true)}>
           <Trash2 size={18} /> Delete order
         </button>
+      </div>
+        </div>
       </Page>
 
       <PaymentSheet open={payOpen} onClose={() => setPayOpen(false)} order={o} />

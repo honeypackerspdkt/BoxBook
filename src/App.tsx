@@ -12,6 +12,7 @@ import { CustomerDetail, CustomerEdit, CustomersList } from './screens/Customers
 import { Calculator } from './screens/Calculator';
 import { BoxesList, Business, More } from './screens/More';
 import { Backup } from './screens/Backup';
+import { DesktopNav } from './DesktopNav';
 
 const TABS: (BottomNavItem & { key: Tab })[] = [
   { key: 'home', label: 'Home', icon: HomeIcon },
@@ -94,11 +95,12 @@ function Shell() {
 
   return (
     <>
-      <div key={routeKey} className={top ? 'anim-page' : 'anim-fade'}>
+      <DesktopNav />
+      <div key={routeKey} className={`lg:pl-64 ${top ? 'anim-page' : 'anim-fade'}`}>
         {top ? renderRoute(top) : renderTab(nav.tab)}
       </div>
 
-      <BottomNav items={TABS} active={nav.tab} onSelect={(k) => nav.setTab(k as Tab)} />
+      <BottomNav className="lg:hidden" items={TABS} active={nav.tab} onSelect={(k) => nav.setTab(k as Tab)} />
       <Toaster position="top-center" theme={data.settings.theme} />
     </>
   );

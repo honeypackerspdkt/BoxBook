@@ -75,7 +75,7 @@ export function Home() {
           <span className="text-[13px] font-semibold">Open</span>
         </button>
 
-        <div className="mb-6 grid grid-cols-2 gap-3">
+        <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Stat label="Active orders" value={String(s.active)} sub={s.active ? 'confirmed → ready' : 'none right now'} tone="kraft" />
           <Stat label="Due this week" value={String(s.dueWeek)} sub={s.overdue ? `${s.overdue} overdue` : 'deliveries'} tone={s.overdue ? 'bad' : undefined} />
           <Stat label="Outstanding" value={money0(s.dues, cur)} sub="to collect" tone={s.dues > 0.5 ? 'bad' : 'good'} />
@@ -92,6 +92,7 @@ export function Home() {
           <Empty icon={<CheckCircle2 size={28} />} title="Welcome to BoxBook" text="Everything you enter stays on this phone. Start by adding a customer or working out a box price in the calculator." />
         )}
 
+        <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-x-8">
         {s.upcoming.length > 0 && (
           <Section title="Upcoming deliveries">
             <List>
@@ -142,6 +143,7 @@ export function Home() {
             </List>
           </Section>
         )}
+        </div>
       </Page>
     </>
   );

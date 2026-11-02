@@ -16,6 +16,7 @@ import {
   SheetHeader,
   SheetTitle,
   Switch,
+  useIsMobile,
 } from '@rajesh-hub/ui';
 import { useNav } from './nav';
 import type { OrderStatus } from './lib/types';
@@ -24,7 +25,7 @@ export function Header({ title, subtitle, back, actions, large }: { title: strin
   const nav = useNav();
   return (
     <header className="pt-safe sticky top-0 z-20 border-b border-border/60 bg-background/90 backdrop-blur-xl">
-      <div className={`flex items-center gap-2 px-4 ${large ? 'h-16' : 'h-14'}`}>
+      <div className={`mx-auto flex w-full max-w-2xl items-center gap-2 px-4 lg:max-w-5xl lg:px-8 ${large ? 'h-16' : 'h-14'}`}>
         {back && (
           <button aria-label="Back" onClick={nav.back} className="-ml-2 grid h-10 w-10 place-items-center rounded-full active:bg-muted">
             <ChevronLeft size={24} />
@@ -54,7 +55,7 @@ export function IconBtn({ label, onClick, children, tone }: { label: string; onC
 }
 
 export function Page({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <main className={`mx-auto w-full max-w-2xl px-4 pb-32 pt-4 ${className}`}>{children}</main>;
+  return <main className={`mx-auto w-full max-w-2xl px-4 pb-32 pt-4 lg:max-w-5xl lg:px-8 lg:pb-12 lg:pt-6 ${className}`}>{children}</main>;
 }
 
 export function Section({ title, action, children }: { title?: string; action?: ReactNode; children: ReactNode }) {
@@ -188,9 +189,14 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
       return true;
     });
   }, [open, onClose, nav]);
+  // Phones get a bottom sheet; tablets and desktops get a panel sliding in from the right.
+  const phone = useIsMobile();
   return (
     <HubSheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent side="bottom" className="pb-safe mx-auto max-h-[88vh] max-w-2xl gap-0 overflow-y-auto rounded-t-3xl">
+      <SheetContent
+        side={phone ? 'bottom' : 'right'}
+        className={phone ? 'pb-safe mx-auto max-h-[88vh] max-w-2xl gap-0 overflow-y-auto rounded-t-3xl' : 'w-full gap-0 overflow-y-auto sm:max-w-md'}
+      >
         <SheetHeader className="px-5 pb-2 pt-5">
           <SheetTitle className="text-[18px] font-bold">{title}</SheetTitle>
           <SheetDescription className="sr-only">{title}</SheetDescription>
@@ -280,7 +286,7 @@ export function Fab({ label, onClick, icon }: { label: string; onClick: () => vo
   return (
     <button
       onClick={onClick}
-      className="fixed bottom-[calc(84px+env(safe-area-inset-bottom))] right-4 z-30 flex items-center gap-2 rounded-2xl bg-primary px-5 py-3.5 text-[15px] font-bold text-white shadow-lift active:scale-95"
+      className="fixed bottom-[calc(84px+env(safe-area-inset-bottom))] right-4 z-30 lg:bottom-8 lg:right-8 flex items-center gap-2 rounded-2xl bg-primary px-5 py-3.5 text-[15px] font-bold text-white shadow-lift active:scale-95"
     >
       {icon}
       {label}

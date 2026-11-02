@@ -110,6 +110,8 @@ export function Calculator({ boxId, customerId: initialCustomer }: { boxId?: str
         }
       />
       <Page>
+        <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-8">
+        <div>
         <Section title="Box size (inner, mm)">
           <div className="card p-4">
             <div className="grid grid-cols-3 gap-3">
@@ -168,9 +170,11 @@ export function Calculator({ boxId, customerId: initialCustomer }: { boxId?: str
           </div>
         </Section>
 
+        </div>
+        <div>
         <Section title="Result">
           <div className={`card overflow-hidden ${valid ? '' : 'opacity-60'}`}>
-            <div className="grid grid-cols-3 divide-x divide-border/60 bg-primary/15/60">
+            <div className="grid grid-cols-3 divide-x divide-border/60 bg-primary/10">
               <Big label="Box weight" value={`${num(r.weight)}`} unit="g" />
               <Big label="Strength (BS)" value={num(r.bs)} unit="kg/cm²" />
               <Big label="Paper cost" value={money(r.paperCost, cur)} unit="per box" />
@@ -221,6 +225,8 @@ export function Calculator({ boxId, customerId: initialCustomer }: { boxId?: str
           <button className="btn-primary" disabled={!valid} onClick={createOrder}>
             <PackagePlus size={18} /> Create order
           </button>
+        </div>
+      </div>
         </div>
       </Page>
 
