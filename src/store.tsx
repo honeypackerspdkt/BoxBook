@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { App as CapApp } from '@capacitor/app';
 import { emptyData, isNative, loadData, saveData } from './lib/storage';
-import { saveBackupOnDevice } from './lib/backup';
+import { backupName, saveBackupOnDevice, toJson } from './lib/backup';
+import { driveSession, uploadDriveBackup } from './lib/drive';
 import { todayISO, uid } from './lib/format';
 import type { AppData, Customer, Order, SavedBox, Settings } from './lib/types';
 
@@ -31,6 +32,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const saveTimer = useRef<number | undefined>(undefined);
   const toastTimer = useRef<number | undefined>(undefined);
   const backupRunning = useRef(false);
+  const driveRunning = useRef(false);
 
   const toast = useCallback((msg: string) => {
     setToastMsg(msg);
@@ -65,12 +67,35 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, [commit]);
 
+  /** Once a day, also copy to Google Drive when it is connected and switched on. Never opens a sign-in window. */
+  const driveBackupIfDue = useCallback(async () => {
+    const d = dataRef.current;
+    const today = todayISO();
+    if (!d.settings.driveAuto || d.settings.lastDriveAutoBackup === today || driveRunning.current) return;
+    if (!d.customers.length && !d.orders.length && !d.boxes.length) return;
+    if (!driveSession()) return;
+    driveRunning.current = true;
+    try {
+      await uploadDriveBackup(backupName('auto'), toJson(d), { interactive: false, keepAuto: d.settings.keepBackups });
+      commit((x) => ({ ...x, settings: { ...x.settings, lastDriveAutoBackup: today, lastDriveBackupAt: new Date().toISOString() } }));
+    } catch (e) {
+      console.warn('Drive backup failed', e);
+    } finally {
+      driveRunning.current = false;
+    }
+  }, [commit]);
+
+  const runDailyBackups = useCallback(() => {
+    void autoBackupIfDue();
+    void driveBackupIfDue();
+  }, [autoBackupIfDue, driveBackupIfDue]);
+
   useEffect(() => {
     loadData().then((d) => {
       dataRef.current = d;
       setData(d);
       setReady(true);
-      setTimeout(autoBackupIfDue, 1500);
+      setTimeout(runDailyBackups, 1500);
     });
     const flush = () => {
       window.clearTimeout(saveTimer.current);
@@ -79,22 +104,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     let remove: (() => void) | undefined;
     if (isNative) {
       CapApp.addListener('appStateChange', ({ isActive }) => {
-        if (isActive) autoBackupIfDue();
+        if (isActive) runDailyBackups();
         else flush();
       }).then((h) => (remove = () => h.remove()));
     }
-    const vis = () => (document.hidden ? flush() : autoBackupIfDue());
+    const vis = () => (document.hidden ? flush() : runDailyBackups());
     document.addEventListener('visibilitychange', vis);
     window.addEventListener('beforeunload', flush);
     // App left open past midnight
-    const iv = window.setInterval(autoBackupIfDue, 30 * 60 * 1000);
+    const iv = window.setInterval(runDailyBackups, 30 * 60 * 1000);
     return () => {
       remove?.();
       document.removeEventListener('visibilitychange', vis);
       window.removeEventListener('beforeunload', flush);
       window.clearInterval(iv);
     };
-  }, [autoBackupIfDue]);
+  }, [runDailyBackups]);
 
   const now = () => new Date().toISOString();
 

@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react';
-import { Boxes, Building2, Calculator, ClipboardList, DatabaseBackup, Home, Users } from 'lucide-react';
+import { Boxes, Building2, Calculator, CircleHelp, ClipboardList, DatabaseBackup, Home, Users } from 'lucide-react';
 import { useStore } from './store';
 import { useNav, type Route, type Tab } from './nav';
 
@@ -19,8 +19,10 @@ const open = (route: Route) => (n: ReturnType<typeof useNav>) => {
 };
 const LIBRARY: Item[] = [
   { key: 'boxes', label: 'Saved boxes', icon: Boxes, go: open({ name: 'boxes' }) },
-  { key: 'business', label: 'Business profile', icon: Building2, go: open({ name: 'business' }) },
+  { key: 'company', label: 'Company profile', icon: Building2, go: open({ name: 'company' }) },
+  { key: 'business', label: 'Pricing defaults', icon: Calculator, go: open({ name: 'business' }) },
   { key: 'backup', label: 'Backup & restore', icon: DatabaseBackup, go: open({ name: 'backup' }) },
+  { key: 'help', label: 'Help & FAQ', icon: CircleHelp, go: open({ name: 'help' }) },
 ];
 
 /** Which sidebar entry is highlighted for the page being shown. */

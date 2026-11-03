@@ -48,6 +48,8 @@ export interface Customer {
   email: string;
   gstin: string;
   address: string;
+  /** GST state code (e.g. '33'); when empty it is taken from the GSTIN. */
+  stateCode?: string;
   notes: string;
   createdAt: string;
   updatedAt: string;
@@ -60,6 +62,10 @@ export interface OrderItem {
   description: string;
   qty: number;
   rate: number;
+  /** HSN/SAC code for the tax invoice; falls back to the company default. */
+  hsn?: string;
+  /** Unit shown after the rate on the invoice, e.g. 'Nos.'. */
+  unit?: string;
   spec?: BoxSpec;
   boxId?: string;
 }
@@ -70,6 +76,17 @@ export interface Payment {
   amount: number;
   mode: string;
   note: string;
+}
+
+/** Extra fields printed in the header grid of the tax invoice. All optional. */
+export interface InvoiceMeta {
+  deliveryNote?: string;
+  termsOfPayment?: string;
+  dispatchDocNo?: string;
+  deliveryNoteDate?: string;
+  dispatchedThrough?: string;
+  destination?: string;
+  termsOfDelivery?: string;
 }
 
 export interface Order {
@@ -84,6 +101,9 @@ export interface Order {
   taxPct: number;
   payments: Payment[];
   notes: string;
+  /** Assigned the first time an invoice PDF is made, then kept. */
+  invoiceNo?: string;
+  invoice?: InvoiceMeta;
   createdAt: string;
   updatedAt: string;
 }
@@ -93,6 +113,23 @@ export interface Settings {
   businessPhone: string;
   businessAddress: string;
   businessGstin: string;
+  businessEmail: string;
+  /** One line under the name on the invoice, e.g. 'An ISO 9001 : 2015 Certified Company'. */
+  businessTagline: string;
+  /** GST state code of the company, e.g. '33' for Tamil Nadu. */
+  businessState: string;
+  /** Company logo as a data URL (kept inside backups). */
+  businessLogo: string;
+  bankHolder: string;
+  bankName: string;
+  bankAccount: string;
+  bankBranch: string;
+  bankIfsc: string;
+  invoiceDeclaration: string;
+  invoicePrefix: string;
+  nextInvoiceNo: number;
+  defaultHsn: string;
+  defaultUnit: string;
   currency: string;
   defaults: Pricing;
   theme: 'system' | 'light' | 'dark';
@@ -101,6 +138,10 @@ export interface Settings {
   keepBackups: number;
   lastAutoBackup: string; // yyyy-mm-dd
   lastBackupAt: string; // ISO, any backup (manual or auto)
+  /** Also upload the daily backup to Google Drive. */
+  driveAuto: boolean;
+  lastDriveBackupAt: string; // ISO
+  lastDriveAutoBackup: string; // yyyy-mm-dd
 }
 
 export interface AppData {

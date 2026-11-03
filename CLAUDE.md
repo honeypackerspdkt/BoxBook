@@ -45,6 +45,22 @@ One codebase → Android + iOS via **Capacitor 7 + React 19 + Vite 7 + TypeScrip
   icons + splash generated from `assets/` (re-run `npx capacitor-assets generate` after changing them).
 - Verified: `npx tsc -b`, `npx vitest run` (33 pass), web build, Android debug APK on an emulator, iOS build on the simulator.
 
+### Tax invoice PDF + company profile
+- `screens/Company.tsx` (route `company`; More → Company profile, desktop sidebar entry): logo upload (resized to ≤400px PNG data URL),
+  name, tagline, address, mobile, e-mail, GSTIN + state, bank details, invoice prefix / next number, default HSN + unit, declaration.
+  All stored in `Settings` (`business*`, `bank*`, `invoice*`, `nextInvoiceNo`, `defaultHsn/Unit`), so every backup/export contains the company data **and logo**.
+  The old Business screen is now "Pricing defaults" (currency + default overhead/profit/GST).
+- Orders carry optional `invoiceNo`, `invoice` (dispatch grid fields) and per-item `hsn` / `unit`; customers carry optional `stateCode`.
+  Edited in OrderEdit ("Tax invoice details", HSN/Unit per item) and CustomerEdit ("State (for GST)").
+- `lib/invoice.ts`: `buildInvoiceModel` (pure; CGST+SGST vs IGST decided by buyer state vs company state, discount spread before tax, tax per HSN)
+  and `drawInvoice`/`createInvoicePdf` (jsPDF, A4, Tally-style "Tax Invoice" layout, multi-page). Fonts: Roboto subset (Apache-2.0, includes ₹) in `src/assets/fonts`.
+  `lib/words.ts` (Indian amount in words), `lib/gst.ts` (state codes, `splitTax`), `lib/sharefile.ts` (native share sheet / Web Share / download).
+- OrderDetail → "Make & share invoice (PDF)": assigns the next invoice number once, builds the PDF (jspdf is lazy-loaded), opens the share sheet
+  (WhatsApp, e-mail, Drive…). In a desktop browser it downloads the file.
+- Tests: `lib/invoice.test.ts` (reproduces sample invoice 330: taxable 6,400 + CGST 576 + SGST 576 = 7,552), `gst.test.ts`, `backup.test.ts`.
+  Render a sample: `INVOICE_OUT=/tmp/x.pdf npx vitest run src/lib/invoice.test.ts`, then `sips -s format png x.pdf --out x.png`.
+- Not yet checked on a real phone: WhatsApp as the share target (emulator showed the system share sheet with the PDF).
+
 ### Shared hub (rajesh-hub)
 - UI and theme come from `~/rajesh-hub` (GitHub `yuvarajeshsp-cloud/rajesh-hub`), linked with `file:` deps:
   `@rajesh-hub/ui`, `@rajesh-hub/tokens`, `@rajesh-hub/print`. Clone it next to this folder and run `npm install` in both.
@@ -72,3 +88,39 @@ One codebase → Android + iOS via **Capacitor 7 + React 19 + Vite 7 + TypeScrip
   Users should still export to Google Drive / WhatsApp now and then — the Backup screen should say so.
 - Box maths (see `calc.ts` doc comment): cut size 2L+2W+50 (2 sheets if ≥1600), deckle W+H+20/30/50 by ply, flute take-up 1.4,
   BS = Σ GSM×BF/1000 with flutes ×0.5, paper cost = Σ layer kg × ₹/kg.
+
+## 3D box view
+- `lib/box3d.ts` — pure geometry: cuboid vertices (bit0 = length x, bit1 = height y, bit2 = width z), yaw/pitch rotation, mild perspective,
+  per-face visibility + shade, 12 edges (hidden ones flagged), and `dimensionLines()` which picks, per axis, the outermost visible
+  silhouette edge and offsets a dimension line outside the box so the numbers stay readable from any angle (skipped when an axis points at the viewer).
+  Tested in `lib/box3d.test.ts`.
+- `Box3D.tsx` — SVG renderer (no 3D library). Drag / arrow keys rotate, play button auto-turns (respects reduced motion), reset button.
+  Colours are `color-mix` of the hub `--primary`, so it follows light/dark. Shows "L 300 / H 150 / W 200" labels + a caption with the sizes.
+- Used in `screens/Calculator.tsx` under the size inputs, so it appears both while creating a box and in a saved box, and updates as you type.
+
+## Google Drive backup
+- `lib/drive.ts` — sign-in + Drive REST. Scope `drive.file email`: the app only sees files it created, in a "BoxBook Backups" folder.
+  - Web: Google Identity Services token popup (1-hour token, cannot refresh silently, so the daily upload only runs while signed in).
+  - Phone: system browser (`@capacitor/browser`) + OAuth code flow with PKCE and the redirect `com.googleusercontent.apps.<id>:/oauth2redirect`
+    (caught via `appUrlOpen`); gives a refresh token so the daily upload works unattended.
+  - Tokens live in localStorage key `boxbook-drive-auth` (not in backups). Settings: `driveAuto`, `lastDriveBackupAt`, `lastDriveAutoBackup`.
+- `screens/Help.tsx` — Help & FAQ + privacy policy (More → Help & FAQ, desktop sidebar). On the web `…/#help` and `…/#privacy` open it directly
+  (use `https://yuvarajeshsp-cloud.github.io/BoxBook/#privacy` as the privacy-policy link on the Google consent screen).
+- `screens/DriveBackup.tsx` — card on the Backup screen: connect, upload now, restore from Drive (list → same restore confirm), daily-upload switch, disconnect.
+- `store.tsx` — `driveBackupIfDue()` runs next to the local daily backup (launch / resume / 30 min), never opens a sign-in window.
+- Daily file is `BoxBook-auto-YYYY-MM-DD.json` (overwritten that day, pruned to `keepBackups`); manual ones are `BoxBook-backup-<stamp>.json`.
+- Tested with mocked network in `lib/drive.test.ts` (PKCE vector, token refresh, folder create, upload/overwrite, prune, list, download).
+  **Not tested against real Google** (needs the client ids below).
+
+### One-time setup (needs the owner's Google account)
+1. console.cloud.google.com → new project "BoxBook" → APIs & Services → enable **Google Drive API**.
+2. OAuth consent screen: External, app name BoxBook, add scopes `.../auth/drive.file` and `email` (both non-sensitive, no Google review needed);
+   add yourself under Test users (or publish the app to let anyone sign in).
+3. Credentials → Create OAuth client ID:
+   - **Web application**: authorised JavaScript origins `https://yuvarajeshsp-cloud.github.io` and `http://localhost:5173`.
+   - **Android**: package `in.boxbook.app` + SHA-1 of the signing key (`./gradlew signingReport`); open Advanced settings and enable **custom URI scheme**.
+   - **iOS**: bundle id `in.boxbook.app`.
+4. Put the ids in `.env.local` (copy `.env.example`): `VITE_GOOGLE_WEB_CLIENT_ID`, `VITE_GOOGLE_ANDROID_CLIENT_ID`, `VITE_GOOGLE_IOS_CLIENT_ID`.
+   For the website add a repo variable `GOOGLE_WEB_CLIENT_ID` (Settings → Secrets and variables → Actions → Variables).
+5. `npm run drive:native` (registers the redirect scheme in `AndroidManifest.xml` / `Info.plist`; idempotent), then `npm run build && npx cap sync`.
+- Without ids the Drive card says "Not set up in this build" and nothing else changes.

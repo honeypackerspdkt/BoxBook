@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Box, Building2, DatabaseBackup, Plus } from 'lucide-react';
+import { Box, Building2, Calculator, CircleHelp, DatabaseBackup, Plus } from 'lucide-react';
 import { useStore } from '../store';
 import { useNav } from '../nav';
 import { specLabel } from '../lib/calc';
@@ -30,14 +30,24 @@ export function More() {
               sub={`${data.boxes.length} saved`}
             />
             <Row
-              onClick={() => nav.push({ name: 'business' })}
+              onClick={() => nav.push({ name: 'company' })}
               icon={
                 <span className={iconCls}>
                   <Building2 size={20} />
                 </span>
               }
-              title="Business profile"
-              sub={settings.businessName || 'Name, GSTIN, default pricing'}
+              title="Company profile"
+              sub={settings.businessName || 'Name, logo, GSTIN, bank — for invoices'}
+            />
+            <Row
+              onClick={() => nav.push({ name: 'business' })}
+              icon={
+                <span className={iconCls}>
+                  <Calculator size={20} />
+                </span>
+              }
+              title="Pricing defaults"
+              sub={`Profit ${settings.defaults.profitPct}% · GST ${settings.defaults.taxPct}% · ${settings.currency}`}
             />
             <Row
               onClick={() => nav.push({ name: 'backup' })}
@@ -48,6 +58,16 @@ export function More() {
               }
               title="Backup & restore"
               sub={settings.lastBackupAt ? `Last backup ${timeAgo(settings.lastBackupAt)}` : 'Not backed up yet'}
+            />
+            <Row
+              onClick={() => nav.push({ name: 'help' })}
+              icon={
+                <span className={iconCls}>
+                  <CircleHelp size={20} />
+                </span>
+              }
+              title="Help & FAQ"
+              sub="Answers, backup tips and privacy"
             />
           </List>
         </Section>
@@ -117,42 +137,24 @@ export function Business() {
   const { data, updateSettings, toast } = useStore();
   const nav = useNav();
   const [s, setS] = useState<Settings>(data.settings);
-  const text = (k: 'businessName' | 'businessPhone' | 'businessAddress' | 'businessGstin' | 'currency') => (e: { target: { value: string } }) => setS({ ...s, [k]: e.target.value });
+  const text = (k: 'currency') => (e: { target: { value: string } }) => setS({ ...s, [k]: e.target.value });
   const setDef = (k: keyof Settings['defaults'], v: number) => setS({ ...s, defaults: { ...s.defaults, [k]: v } });
 
   const save = () => {
     updateSettings({
-      businessName: s.businessName.trim(),
-      businessPhone: s.businessPhone.trim(),
-      businessAddress: s.businessAddress.trim(),
-      businessGstin: s.businessGstin.trim().toUpperCase(),
       currency: s.currency.trim() || '₹',
       defaults: s.defaults,
     });
-    toast('Business profile saved');
+    toast('Pricing defaults saved');
     nav.back();
   };
 
   return (
     <>
-      <Header title="Business profile" back />
+      <Header title="Pricing defaults" back />
       <Page>
-        <Section title="Your business">
-          <div className="card space-y-4 p-4">
-            <Field label="Business name">
-              <input className="input" value={s.businessName} onChange={text('businessName')} placeholder="Shown on shared quotations" />
-            </Field>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Phone">
-                <input className="input" type="tel" inputMode="tel" value={s.businessPhone} onChange={text('businessPhone')} />
-              </Field>
-              <Field label="GSTIN">
-                <input className="input uppercase" value={s.businessGstin} onChange={text('businessGstin')} maxLength={15} />
-              </Field>
-            </div>
-            <Field label="Address">
-              <textarea className="input min-h-[80px]" value={s.businessAddress} onChange={text('businessAddress')} />
-            </Field>
+        <Section title="Currency">
+          <div className="card p-4">
             <Field label="Currency symbol">
               <input className="input" value={s.currency} onChange={text('currency')} maxLength={4} />
             </Field>

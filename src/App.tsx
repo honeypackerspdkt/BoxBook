@@ -11,6 +11,8 @@ import { OrderDetail, OrderEdit, OrdersList } from './screens/Orders';
 import { CustomerDetail, CustomerEdit, CustomersList } from './screens/Customers';
 import { Calculator } from './screens/Calculator';
 import { BoxesList, Business, More } from './screens/More';
+import { Company } from './screens/Company';
+import { Help } from './screens/Help';
 import { Backup } from './screens/Backup';
 import { DesktopNav } from './DesktopNav';
 
@@ -56,6 +58,10 @@ function renderRoute(r: Route) {
       return <Backup />;
     case 'business':
       return <Business />;
+    case 'company':
+      return <Company />;
+    case 'help':
+      return <Help />;
   }
 }
 

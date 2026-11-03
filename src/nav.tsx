@@ -13,7 +13,9 @@ export type Route =
   | { name: 'box'; id?: string; customerId?: string }
   | { name: 'boxes' }
   | { name: 'backup' }
-  | { name: 'business' };
+  | { name: 'business' }
+  | { name: 'company' }
+  | { name: 'help' };
 
 interface Nav {
   tab: Tab;
@@ -28,9 +30,15 @@ interface Nav {
 
 const Ctx = createContext<Nav | null>(null);
 
+/** The website can be opened straight on the help / privacy page (…/#help, …/#privacy), e.g. for a link on Google's consent screen. */
+function initialStack(): Route[] {
+  if (isNative || typeof location === 'undefined') return [];
+  return /^#(help|privacy)$/i.test(location.hash) ? [{ name: 'help' }] : [];
+}
+
 export function NavProvider({ children }: { children: ReactNode }) {
   const [tab, setTabState] = useState<Tab>('home');
-  const [stack, setStack] = useState<Route[]>([]);
+  const [stack, setStack] = useState<Route[]>(initialStack);
   const interceptors = useRef<(() => boolean)[]>([]);
   const state = useRef({ tab, stack });
   state.current = { tab, stack };

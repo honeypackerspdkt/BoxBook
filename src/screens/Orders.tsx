@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
-import { Box, Check, ClipboardList, Copy, MessageCircle, Pencil, Phone, Plus, Share2, Trash2, UserPlus, Wallet, X } from 'lucide-react';
+import { Box, Check, ClipboardList, Copy, FileText, MessageCircle, Pencil, Phone, Plus, Share2, Trash2, UserPlus, Wallet, X } from 'lucide-react';
 import { useStore } from '../store';
 import { useNav } from '../nav';
 import { calcBox, estimate, isOpen, orderTotals, specLabel } from '../lib/calc';
 import { fmtDate, money, money0, num, relDays, telHref, todayISO, uid, waHref } from '../lib/format';
 import { orderText, shareText } from '../lib/share';
-import type { Order, OrderItem, OrderStatus } from '../lib/types';
+import { shareFile } from '../lib/sharefile';
+import type { InvoiceMeta, Order, OrderItem, OrderStatus } from '../lib/types';
 import { Confirm, Empty, Fab, Field, Header, IconBtn, List, NumInput, Page, Row, SearchBox, Section, Sheet, STATUS, STATUS_FLOW, StatusChip } from '../ui';
 import { Missing } from './Customers';
 
@@ -129,8 +130,9 @@ export function OrdersList() {
 }
 
 export function OrderDetail({ id }: { id: string }) {
-  const { data, upsertOrder, deleteOrder, toast } = useStore();
+  const { data, upsertOrder, updateSettings, deleteOrder, toast } = useStore();
   const nav = useNav();
+  const [invBusy, setInvBusy] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   const [delOrder, setDelOrder] = useState(false);
   const [delPay, setDelPay] = useState<string | null>(null);
@@ -153,6 +155,40 @@ export function OrderDetail({ id }: { id: string }) {
   const share = async () => {
     const m = await shareText(`Order ${o.number}`, text);
     if (m) toast(m);
+  };
+
+  /** Makes the GST tax invoice PDF and opens the share sheet (WhatsApp, e-mail, Drive…). */
+  const sendInvoice = async () => {
+    if (invBusy) return;
+    const s = data.settings;
+    if (!s.businessName.trim()) {
+      toast('Fill in your company profile first');
+      nav.push({ name: 'company' });
+      return;
+    }
+    if (o.items.length === 0) {
+      toast('Add an item before making an invoice');
+      return;
+    }
+    setInvBusy(true);
+    try {
+      const { buildInvoiceModel, formatInvoiceNo, renderInvoicePdf } = await import('../lib/invoice');
+      let no = o.invoiceNo;
+      if (!no) {
+        no = formatInvoiceNo(s);
+        upsertOrder({ ...o, invoiceNo: no });
+        updateSettings({ nextInvoiceNo: s.nextInvoiceNo + 1 });
+      }
+      const model = buildInvoiceModel({ ...o, invoiceNo: no }, c, s, no);
+      const { bytes, fileName } = await renderInvoicePdf(model);
+      const note = `Invoice ${no} from ${s.businessName}\nAmount: ${money(model.total, s.currency)}`;
+      const m = await shareFile(fileName, bytes, 'application/pdf', `Invoice ${no}`, note);
+      if (m) toast(m);
+    } catch (e) {
+      toast(e instanceof Error ? `Could not make invoice: ${e.message}` : 'Could not make invoice');
+    } finally {
+      setInvBusy(false);
+    }
   };
 
   const duplicate = () => {
@@ -336,6 +372,9 @@ export function OrderDetail({ id }: { id: string }) {
           </Section>
         )}
 
+        <button className="btn-primary mb-3 w-full" disabled={invBusy} onClick={sendInvoice}>
+          <FileText size={18} /> {invBusy ? 'Making PDF…' : o.invoiceNo ? `Share invoice ${o.invoiceNo} (PDF)` : 'Make & share invoice (PDF)'}
+        </button>
         <div className="grid grid-cols-2 gap-3">
           <button className="btn-ghost" onClick={duplicate}>
             <Copy size={18} /> Repeat order
@@ -455,6 +494,9 @@ export function OrderEdit({ id, customerId: initialCustomer, prefill }: { id?: s
   const [discount, setDiscount] = useState(existing?.discount || 0);
   const [taxPct, setTaxPct] = useState(existing ? existing.taxPct : data.settings.defaults.taxPct);
   const [notes, setNotes] = useState(existing?.notes || '');
+  const [invoiceNo, setInvoiceNo] = useState(existing?.invoiceNo || '');
+  const [inv, setInv] = useState<InvoiceMeta>(existing?.invoice || {});
+  const setInvField = (k: keyof InvoiceMeta) => (e: { target: { value: string } }) => setInv((x) => ({ ...x, [k]: e.target.value }));
   const [boxSheet, setBoxSheet] = useState(false);
   const [custSheet, setCustSheet] = useState(false);
   const [newName, setNewName] = useState('');
@@ -498,6 +540,8 @@ export function OrderEdit({ id, customerId: initialCustomer, prefill }: { id?: s
       taxPct,
       payments: existing?.payments || [],
       notes: notes.trim(),
+      invoiceNo: invoiceNo.trim() || undefined,
+      invoice: Object.fromEntries(Object.entries(inv).filter(([, v]) => (v || '').trim())) as InvoiceMeta,
     });
     toast(existing ? 'Order updated' : `${rec.number} created`);
     if (existing) nav.back();
@@ -565,6 +609,14 @@ export function OrderEdit({ id, customerId: initialCustomer, prefill }: { id?: s
                     <NumInput value={it.rate} onValue={(v) => patchItem(it.id, { rate: v })} suffix={cur} />
                   </Field>
                 </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="HSN / SAC">
+                    <input className="input" inputMode="numeric" value={it.hsn || ''} onChange={(e) => patchItem(it.id, { hsn: e.target.value })} placeholder={data.settings.defaultHsn || 'Default'} />
+                  </Field>
+                  <Field label="Unit">
+                    <input className="input" value={it.unit || ''} onChange={(e) => patchItem(it.id, { unit: e.target.value })} placeholder={data.settings.defaultUnit || 'Nos.'} />
+                  </Field>
+                </div>
                 <div className="tnum flex justify-between text-[14px]">
                   <span className="text-muted-foreground">Line total</span>
                   <span className="font-semibold">{money(it.qty * it.rate, cur)}</span>
@@ -602,6 +654,40 @@ export function OrderEdit({ id, customerId: initialCustomer, prefill }: { id?: s
               <span className="tnum text-[20px] font-bold">{money(t.total, cur)}</span>
             </div>
           </div>
+        </Section>
+
+        <Section title="Tax invoice details">
+          <details className="card group p-4">
+            <summary className="cursor-pointer list-none text-[14px] font-semibold text-primary">Optional — printed on the PDF invoice</summary>
+            <div className="mt-4 space-y-4">
+              <Field label="Invoice no." hint="Leave empty to number automatically when the PDF is first made.">
+                <input className="input" value={invoiceNo} onChange={(e) => setInvoiceNo(e.target.value)} placeholder="Auto" />
+              </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Dispatched through">
+                  <input className="input" value={inv.dispatchedThrough || ''} onChange={setInvField('dispatchedThrough')} placeholder="Car, Lorry…" />
+                </Field>
+                <Field label="Destination">
+                  <input className="input" value={inv.destination || ''} onChange={setInvField('destination')} />
+                </Field>
+                <Field label="Mode / terms of payment">
+                  <input className="input" value={inv.termsOfPayment || ''} onChange={setInvField('termsOfPayment')} />
+                </Field>
+                <Field label="Delivery note">
+                  <input className="input" value={inv.deliveryNote || ''} onChange={setInvField('deliveryNote')} />
+                </Field>
+                <Field label="Dispatch doc no.">
+                  <input className="input" value={inv.dispatchDocNo || ''} onChange={setInvField('dispatchDocNo')} />
+                </Field>
+                <Field label="Delivery note date">
+                  <input className="input" type="date" value={inv.deliveryNoteDate || ''} onChange={setInvField('deliveryNoteDate')} />
+                </Field>
+              </div>
+              <Field label="Terms of delivery">
+                <textarea className="input min-h-[64px]" value={inv.termsOfDelivery || ''} onChange={setInvField('termsOfDelivery')} />
+              </Field>
+            </div>
+          </details>
         </Section>
 
         <Section title="Notes">

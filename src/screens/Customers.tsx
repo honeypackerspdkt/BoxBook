@@ -4,6 +4,7 @@ import { useStore } from '../store';
 import { useNav } from '../nav';
 import { orderTotals, specLabel } from '../lib/calc';
 import { fmtDate, initials, money, money0, telHref, waHref } from '../lib/format';
+import { GST_STATES, stateFromGstin } from '../lib/gst';
 import type { Customer } from '../lib/types';
 import { Avatar, Confirm, Empty, Fab, Field, Header, IconBtn, List, Page, Row, SearchBox, Section, StatusChip } from '../ui';
 
@@ -256,6 +257,16 @@ export function CustomerEdit({ id }: { id?: string }) {
               <input className="input uppercase" value={f.gstin || ''} onChange={set('gstin')} maxLength={15} />
             </Field>
           </div>
+          <Field label="State (for GST)" hint={stateFromGstin(f.gstin || '') ? 'Taken from the GSTIN.' : 'Decides CGST + SGST or IGST on invoices. Empty = same state as you.'}>
+            <select className="input" value={stateFromGstin(f.gstin || '') || f.stateCode || ''} disabled={!!stateFromGstin(f.gstin || '')} onChange={(e) => setF({ ...f, stateCode: e.target.value })}>
+              <option value="">— Same as my state —</option>
+              {Object.entries(GST_STATES).map(([code, name]) => (
+                <option key={code} value={code}>
+                  {name} ({code})
+                </option>
+              ))}
+            </select>
+          </Field>
           <Field label="Email">
             <input className="input" type="email" inputMode="email" value={f.email || ''} onChange={set('email')} />
           </Field>

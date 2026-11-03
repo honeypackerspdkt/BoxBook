@@ -6,8 +6,9 @@ import { backupLocationLabel, deleteBackup, exportBackup, listBackups, parseBack
 import { fmtDateTime } from '../lib/format';
 import type { AppData } from '../lib/types';
 import { Confirm, Header, List, Page, Row, Section, Segmented, Sheet, Toggle } from '../ui';
+import { DriveBackup } from './DriveBackup';
 
-const counts = (d: AppData) => `${d.customers.length} customers, ${d.orders.length} orders, ${d.boxes.length} saved boxes`;
+const counts = (d: AppData) => `${d.customers.length} customers, ${d.orders.length} orders, ${d.boxes.length} saved boxes${d.settings.businessName ? ' + company profile' : ''}${d.settings.businessLogo ? ' & logo' : ''}`;
 const kb = (n: number) => (n < 1024 ? `${n} B` : `${Math.round(n / 1024)} KB`);
 
 export function Backup() {
@@ -92,6 +93,8 @@ export function Backup() {
           <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
         </div>
 
+        <DriveBackup busy={busy} run={run} onRestore={(d, source) => setPending({ data: d, source })} />
+
         <Section title="Automatic backup">
           <div className="card space-y-4 p-4">
             <Toggle checked={settings.autoBackup} onChange={(v) => updateSettings({ autoBackup: v })} label="Daily backup" desc="A copy is saved once a day when you open the app." />
@@ -133,7 +136,8 @@ export function Backup() {
                 ? 'Backups are saved in Documents/BoxBook/Backups (on iPhone: Files app → On My iPhone → BoxBook). On Android they stay even if the app is uninstalled.'
                 : 'In the browser, backups are kept in browser storage. Use “Export file” to save one to your computer.'}
             </p>
-            <p>Phones can be lost or reset, so now and then use “Export file” and send the backup to Google Drive, WhatsApp or e-mail.</p>
+            <p>A backup holds everything: customers, orders, saved boxes, your company profile (bank details, invoice numbers) and your logo.</p>
+            <p>Phones can be lost or reset, so keep a copy off the phone: connect Google Drive above, or use “Export file” and send it to WhatsApp or e-mail.</p>
           </div>
         </div>
       </Page>

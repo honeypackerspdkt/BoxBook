@@ -8,10 +8,12 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "test": "vitest run",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "drive:native": "node scripts/drive-native-setup.mjs"
   },
   "dependencies": {
     "@capacitor/app": "^7.1.2",
+    "@capacitor/browser": "^7.0.5",
     "@capacitor/core": "^7.6.9",
     "@capacitor/filesystem": "^7.1.9",
     "@capacitor/share": "^7.0.4",
@@ -20,6 +22,7 @@
     "@rajesh-hub/tokens": "file:../rajesh-hub/packages/tokens",
     "@rajesh-hub/ui": "file:../rajesh-hub/packages/ui",
     "@tailwindcss/vite": "^4.3.3",
+    "jspdf": "^4.2.1",
     "lucide-react": "^1.58.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

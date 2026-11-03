@@ -41,6 +41,9 @@ jobs:
 
       - name: Build BoxBook
         working-directory: BoxBook
+        env:
+          # Public OAuth client id for Google Drive backup (repo Settings → Variables → Actions). Optional.
+          VITE_GOOGLE_WEB_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID }}
         run: |
           npm ci --no-audit --no-fund
           npm run build

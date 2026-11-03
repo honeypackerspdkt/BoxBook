@@ -22,6 +22,9 @@ const stamp = () => {
   return `${todayISO()}_${p(d.getHours())}${p(d.getMinutes())}`;
 };
 
+/** File name for a backup: one per day for the automatic copy, time-stamped for manual ones. */
+export const backupName = (kind: 'auto' | 'manual') => (kind === 'auto' ? `BoxBook-auto-${todayISO()}.json` : `BoxBook-backup-${stamp()}.json`);
+
 export const toJson = (data: AppData) => JSON.stringify({ ...data, savedAt: new Date().toISOString() }, null, 1);
 
 /** Writes a backup file to the phone. Tries the public Documents folder first (survives uninstall on Android),
@@ -96,7 +99,7 @@ async function prune(keep: number) {
 
 /** Saves a backup on the phone. kind=auto is used for the once-a-day automatic copy. */
 export async function saveBackupOnDevice(data: AppData, kind: 'auto' | 'manual', keep: number): Promise<BackupEntry> {
-  const name = kind === 'auto' ? `BoxBook-auto-${todayISO()}.json` : `BoxBook-backup-${stamp()}.json`;
+  const name = backupName(kind);
   const json = toJson(data);
   let entry: BackupEntry;
   if (isNative) {

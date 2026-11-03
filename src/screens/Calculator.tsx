@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Bookmark, Layers, PackagePlus, RotateCcw, Share2 } from 'lucide-react';
 import { useStore } from '../store';
 import { useNav } from '../nav';
+import { Box3D } from '../Box3D';
 import { calcBox, emptyLayers, estimate, isFlute, layerName, specLabel } from '../lib/calc';
 import { money, num } from '../lib/format';
 import { boxSpecText, shareText } from '../lib/share';
@@ -134,6 +135,10 @@ export function Calculator({ boxId, customerId: initialCustomer }: { boxId?: str
               />
             </div>
           </div>
+        </Section>
+
+        <Section title="3D view">
+          <Box3D length={spec.length} width={spec.width} height={spec.height} />
         </Section>
 
         <Section title="Paper">
