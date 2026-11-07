@@ -12,6 +12,7 @@ import { CustomerDetail, CustomerEdit, CustomersList } from './screens/Customers
 import { Calculator } from './screens/Calculator';
 import { BoxesList, Business, More } from './screens/More';
 import { Company } from './screens/Company';
+import { WebPrices } from './screens/WebPrices';
 import { Help } from './screens/Help';
 import { Backup } from './screens/Backup';
 import { DesktopNav } from './DesktopNav';
@@ -60,6 +61,8 @@ function renderRoute(r: Route) {
       return <Business />;
     case 'company':
       return <Company />;
+    case 'webPrices':
+      return <WebPrices />;
     case 'help':
       return <Help />;
   }

@@ -28,6 +28,12 @@ One codebase → Android + iOS via **Capacitor 7 + React 19 + Vite 7 + TypeScrip
 - `pricing.ts` — web price list (`PriceRules`, stored in Supabase `price_rules.rules`): `priceCustomBox` (paper from `calcBox` +
   conversion ₹/kg by ply + printing + quantity-slab margin, size/qty limits), `slabTable`, `findZone`/`deliveryCharge` (pincode zones),
   `checkoutTotals` (GST on goods + delivery), `advanceAmount`. Tested in `pricing.test.ts` with hand-worked numbers.
+- `WebShop` (rules + delivery zones + advance % + minimum order + show prices), `defaultWebShop`, `normalizeWebShop`, `setupProblems`, `gradeLabel`.
+- App: `AppData.web` holds the web price list (in backups; older files load with defaults), `store.updateWeb()`.
+  Screen `screens/WebPrices.tsx` (route `webPrices`; More → Web price list, desktop sidebar): paper rates, conversion ₹/kg per ply,
+  board grades (sheet editor, same or per-layer paper), quantity slabs, printing, order/machine limits (0 = none), delivery zones
+  (sheet editor), readiness checklist and a live buyer preview (slab table + cost breakdown). Synced to Supabase `price_rules` /
+  `delivery_zones` once cloud sync exists.
 - Source is consumed as TypeScript (no build step). Typecheck: `npx tsc -p packages/box-core`. Tests run with the app's `npx vitest run`.
 
 

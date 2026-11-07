@@ -1,6 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
 import { defaultCompany } from '@honeypackers/box-core/company';
+import { defaultWebShop, normalizeWebShop } from '@honeypackers/box-core/pricing';
 import type { AppData, Settings } from './types';
 
 export const isNative = Capacitor.isNativePlatform();
@@ -29,6 +30,7 @@ export function emptyData(): AppData {
     orders: [],
     boxes: [],
     settings: { ...defaultSettings },
+    web: defaultWebShop(),
   };
 }
 
@@ -50,6 +52,7 @@ export function normalize(raw: unknown): AppData {
       ...(d.settings || {}),
       defaults: { ...defaultSettings.defaults, ...(d.settings?.defaults || {}) },
     },
+    web: normalizeWebShop(d.web),
   };
 }
 

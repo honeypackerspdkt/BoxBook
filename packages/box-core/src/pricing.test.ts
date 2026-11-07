@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { advanceAmount, checkoutTotals, deliveryCharge, findZone, priceCustomBox, slabFor, slabTable, specForGrade, type DeliveryZone, type PriceRules } from './pricing';
+import { advanceAmount, checkoutTotals, defaultWebShop, deliveryCharge, findZone, gradeLabel, normalizeWebShop, priceCustomBox, setupProblems, slabFor, slabTable, specForGrade, type DeliveryZone, type PriceRules } from './pricing';
 
 const rules: PriceRules = {
   paper: [
@@ -132,5 +132,38 @@ describe('checkout', () => {
     expect(advanceAmount(8106, 100)).toBe(8106);
     expect(advanceAmount(8106, 50)).toBe(4053);
     expect(advanceAmount(8106, 150)).toBe(8106);
+  });
+});
+
+describe('web price list set-up', () => {
+  it('no machine limit when maxDeckle / maxCut are 0', () => {
+    const open = { ...rules, limits: { ...rules.limits, maxDeckle: 0, maxCut: 0 } };
+    expect(priceCustomBox({ ...box, height: 2000, gradeId: '3-120-18', qty: 500 }, open).ok).toBe(true);
+  });
+
+  it('normalizes missing / damaged data to safe defaults', () => {
+    const d = defaultWebShop();
+    expect(normalizeWebShop(undefined)).toEqual(d);
+    expect(normalizeWebShop('junk')).toEqual(d);
+    const w = normalizeWebShop({ rules: { paper: [{ gsm: 120, bf: '18', pricePerKg: 42 }], grades: [{ id: 'a', ply: 4, layers: [] }, { id: 'b', ply: 3, layers: [{ gsm: 120, bf: 18 }] }], conversionPerKg: { 3: 12, 5: 'x' } }, advancePct: 50 });
+    expect(w.rules.paper).toEqual([{ gsm: 120, bf: 0, pricePerKg: 42 }]);
+    expect(w.rules.grades.map((g) => g.id)).toEqual(['b']);
+    expect(w.rules.conversionPerKg).toEqual({ 3: 12 });
+    expect(w.rules.limits.minQty).toBe(100);
+    expect(w.advancePct).toBe(50);
+    expect(w.showPrices).toBe(true);
+  });
+
+  it('lists what is missing before prices can be shown', () => {
+    expect(setupProblems(defaultWebShop().rules)).toEqual(['Add at least one board grade.', 'Add at least one quantity slab with a margin.']);
+    expect(setupProblems(rules).filter((p) => !p.startsWith('missing'))).toEqual([]);
+    expect(setupProblems({ ...rules, grades: [rules.grades[2]] })).toEqual(['missing: no paper rate for 180 GSM / 22 BF.']);
+    expect(setupProblems({ ...rules, grades: [{ id: 'x', label: '', ply: 7, layers: [{ gsm: 120, bf: 18 }] }] })).toEqual(['7 ply grade: conversion cost for 7 ply is not set.']);
+    expect(setupProblems({ ...rules, slabs: [{ minQty: 500, marginPct: 20 }] })).toContain('No slab starts at or below the minimum order of 100 boxes.');
+  });
+
+  it('labels grades', () => {
+    expect(gradeLabel(rules.grades[0])).toBe('3 ply · 120 GSM · 18 BF');
+    expect(gradeLabel(rules.grades[1])).toBe('5 ply · mixed paper');
   });
 });

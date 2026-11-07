@@ -1,11 +1,18 @@
 import { useState } from 'react';
-import { Box, Building2, Calculator, CircleHelp, DatabaseBackup, Plus } from 'lucide-react';
+import { Box, Building2, Calculator, CircleHelp, DatabaseBackup, Globe, Plus } from 'lucide-react';
+import { setupProblems } from '@honeypackers/box-core/pricing';
 import { useStore } from '../store';
 import { useNav } from '../nav';
 import { specLabel } from '@honeypackers/box-core/calc';
 import { timeAgo } from '../lib/format';
-import type { Settings } from '../lib/types';
+import type { AppData, Settings } from '../lib/types';
 import { Empty, Field, Header, List, NumInput, Page, Row, Section, Segmented, Fab } from '../ui';
+
+function webSummary(w: AppData['web']): string {
+  const left = setupProblems(w.rules).length;
+  if (left) return `${left} thing${left > 1 ? 's' : ''} to fill in before prices show online`;
+  return `${w.rules.grades.length} grade${w.rules.grades.length > 1 ? 's' : ''} · ${w.zones.length} delivery zone${w.zones.length === 1 ? '' : 's'}${w.showPrices ? '' : ' · prices hidden'}`;
+}
 
 const iconCls = 'grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/12 text-primary';
 
@@ -48,6 +55,16 @@ export function More() {
               }
               title="Pricing defaults"
               sub={`Profit ${settings.defaults.profitPct}% · GST ${settings.defaults.taxPct}% · ${settings.currency}`}
+            />
+            <Row
+              onClick={() => nav.push({ name: 'webPrices' })}
+              icon={
+                <span className={iconCls}>
+                  <Globe size={20} />
+                </span>
+              }
+              title="Web price list"
+              sub={webSummary(data.web)}
             />
             <Row
               onClick={() => nav.push({ name: 'backup' })}

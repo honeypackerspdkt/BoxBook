@@ -39,6 +39,7 @@ export interface PriceRules {
   conversionPerKg: Partial<Record<string, number>>;
   printing: { perColourPerBox: number; plateCharge: number; maxColours: number };
   slabs: Slab[];
+  /** Sizes in mm. maxDeckle / maxCut / maxQty of 0 (or missing maxQty) mean no limit. */
   limits: { minQty: number; maxQty?: number; maxDeckle: number; maxCut: number; minSide?: number };
   grades: Grade[];
 }
@@ -125,7 +126,8 @@ export function priceCustomBox(input: CustomBoxInput, rules: PriceRules): Custom
   if (!spec) return fail('no-paper-rate', 'This grade has no paper rate yet, please ask for a quote.');
 
   const box = calcBox(spec);
-  if (box.deckleSize > rules.limits.maxDeckle || box.cutSize > rules.limits.maxCut) {
+  const { maxDeckle, maxCut } = rules.limits; // 0 = no limit set
+  if ((maxDeckle > 0 && box.deckleSize > maxDeckle) || (maxCut > 0 && box.cutSize > maxCut)) {
     return fail('too-big', 'This size is larger than our machines take, please ask for a quote.');
   }
   const slab = slabFor(qty, rules.slabs);
@@ -166,6 +168,7 @@ export function slabTable(input: Omit<CustomBoxInput, 'qty'>, rules: PriceRules)
 /* ------------------------------------ delivery ------------------------------------ */
 
 export interface DeliveryZone {
+  id?: string;
   name: string;
   pincodeFrom: number;
   pincodeTo: number;
@@ -209,3 +212,93 @@ export function checkoutTotals(goodsAmount: number, delivery: number, taxPct: nu
 
 /** Amount to pay now for a given advance % (100 = full payment upfront). */
 export const advanceAmount = (total: number, advancePct: number) => round2((total * Math.min(100, Math.max(0, advancePct))) / 100);
+
+/* ------------------------------------ the whole web price list ------------------------------------ */
+
+/** Everything the owner sets for the website (Supabase: price_rules + delivery_zones). */
+export interface WebShop {
+  rules: PriceRules;
+  zones: DeliveryZone[];
+  /** % of the order paid at checkout for custom boxes (100 = full payment upfront). */
+  advancePct: number;
+  /** Smallest order value (before GST) the website accepts; 0 = none. */
+  minOrderValue: number;
+  /** Show prices on the website. */
+  showPrices: boolean;
+}
+
+export const defaultWebShop = (): WebShop => ({
+  rules: {
+    paper: [],
+    conversionPerKg: {},
+    printing: { perColourPerBox: 0, plateCharge: 0, maxColours: 4 },
+    slabs: [],
+    limits: { minQty: 100, maxQty: 0, maxDeckle: 0, maxCut: 0, minSide: 50 },
+    grades: [],
+  },
+  zones: [],
+  advancePct: 100,
+  minOrderValue: 0,
+  showPrices: true,
+});
+
+const num = (v: unknown, fallback = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
+const arr = <T>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
+const PLIES: Ply[] = [3, 5, 7, 9];
+
+/** Reads a stored / downloaded web price list, filling anything missing so older or partial data still loads. */
+export function normalizeWebShop(raw: unknown): WebShop {
+  const d = defaultWebShop();
+  if (!raw || typeof raw !== 'object') return d;
+  const w = raw as Partial<WebShop>;
+  const r = (w.rules || {}) as Partial<PriceRules>;
+  const conv: Record<string, number> = {};
+  for (const [k, v] of Object.entries(r.conversionPerKg || {})) if (typeof v === 'number' && Number.isFinite(v)) conv[k] = v;
+  return {
+    rules: {
+      paper: arr<PaperRate>(r.paper).map((p) => ({ gsm: num(p?.gsm), bf: num(p?.bf), pricePerKg: num(p?.pricePerKg) })),
+      conversionPerKg: conv,
+      printing: { ...d.rules.printing, ...(r.printing || {}) },
+      slabs: arr<Slab>(r.slabs).map((x) => ({ minQty: num(x?.minQty), marginPct: num(x?.marginPct) })),
+      limits: { ...d.rules.limits, ...(r.limits || {}) },
+      grades: arr<Grade>(r.grades)
+        .filter((g) => g && typeof g.id === 'string' && PLIES.includes(g.ply))
+        .map((g) => ({ id: g.id, label: String(g.label ?? ''), ply: g.ply, layers: arr<Grade['layers'][number]>(g.layers).map((l) => ({ gsm: num(l?.gsm), bf: num(l?.bf) })) })),
+    },
+    zones: arr<DeliveryZone>(w.zones).filter((z) => z && typeof z === 'object'),
+    advancePct: num(w.advancePct, d.advancePct),
+    minOrderValue: num(w.minOrderValue, d.minOrderValue),
+    showPrices: typeof w.showPrices === 'boolean' ? w.showPrices : d.showPrices,
+  };
+}
+
+/** What still has to be filled in before the website can show prices (empty list = ready). */
+export function setupProblems(rules: PriceRules): string[] {
+  const out: string[] = [];
+  if (!rules.grades.length) out.push('Add at least one board grade.');
+  if (!rules.slabs.length) out.push('Add at least one quantity slab with a margin.');
+  else if (!rules.slabs.some((s) => s.minQty <= rules.limits.minQty)) out.push(`No slab starts at or below the minimum order of ${rules.limits.minQty} boxes.`);
+  for (const g of rules.grades) {
+    const name = g.label || `${g.ply} ply grade`;
+    const layers = g.layers.length > 1 ? g.layers.slice(0, g.ply) : g.layers.slice(0, 1);
+    if (!layers.length || (g.layers.length > 1 && g.layers.length < g.ply)) {
+      out.push(`${name}: paper for every layer is not filled in.`);
+      continue;
+    }
+    for (const l of layers) {
+      if (!rules.paper.some((p) => p.gsm === l.gsm && p.bf === l.bf && p.pricePerKg > 0)) {
+        out.push(`${name}: no paper rate for ${l.gsm} GSM / ${l.bf} BF.`);
+        break;
+      }
+    }
+    if (!(rules.conversionPerKg[String(g.ply)] && rules.conversionPerKg[String(g.ply)]! > 0)) out.push(`${name}: conversion cost for ${g.ply} ply is not set.`);
+  }
+  return [...new Set(out)];
+}
+
+/** Short default label for a grade, e.g. "3 ply · 120 GSM · 18 BF" or "5 ply · mixed paper". */
+export function gradeLabel(g: Pick<Grade, 'ply' | 'layers'>): string {
+  const ls = g.layers.length > 1 ? g.layers.slice(0, g.ply) : g.layers;
+  const same = ls.every((l) => l.gsm === ls[0]?.gsm && l.bf === ls[0]?.bf);
+  return same && ls[0] ? `${g.ply} ply · ${ls[0].gsm} GSM · ${ls[0].bf} BF` : `${g.ply} ply · mixed paper`;
+}

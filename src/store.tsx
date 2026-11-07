@@ -4,7 +4,7 @@ import { emptyData, isNative, loadData, saveData } from './lib/storage';
 import { backupName, saveBackupOnDevice, toJson } from './lib/backup';
 import { driveSession, uploadDriveBackup } from './lib/drive';
 import { todayISO, uid } from './lib/format';
-import type { AppData, Customer, Order, SavedBox, Settings } from './lib/types';
+import type { AppData, Customer, Order, SavedBox, Settings, WebShop } from './lib/types';
 
 interface Store {
   data: AppData;
@@ -16,6 +16,7 @@ interface Store {
   upsertBox: (b: Omit<SavedBox, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }) => SavedBox;
   deleteBox: (id: string) => void;
   updateSettings: (patch: Partial<Settings>) => void;
+  updateWeb: (web: WebShop) => void;
   replaceAll: (d: AppData) => Promise<void>;
   backupNow: () => Promise<void>;
   toast: (msg: string) => void;
@@ -180,6 +181,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const updateSettings = (patch: Partial<Settings>) => commit((d) => ({ ...d, settings: { ...d.settings, ...patch } }));
 
+  const updateWeb = (web: WebShop) => commit((d) => ({ ...d, web }));
+
   const replaceAll = async (incoming: AppData) => {
     // Safety copy of what is on the phone right now, before it is replaced.
     try {
@@ -203,7 +206,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   return (
     <Ctx.Provider
-      value={{ data, ready, upsertCustomer, deleteCustomer, upsertOrder, deleteOrder, upsertBox, deleteBox, updateSettings, replaceAll, backupNow, toast, toastMsg }}
+      value={{ data, ready, upsertCustomer, deleteCustomer, upsertOrder, deleteOrder, upsertBox, deleteBox, updateSettings, updateWeb, replaceAll, backupNow, toast, toastMsg }}
     >
       {children}
     </Ctx.Provider>

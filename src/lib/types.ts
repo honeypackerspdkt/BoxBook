@@ -1,6 +1,8 @@
+import type { WebShop } from '@honeypackers/box-core/pricing';
 import type { CompanySettings, Customer, Order, SavedBox } from '@honeypackers/box-core/types';
 
 export type * from '@honeypackers/box-core/types';
+export type { WebShop } from '@honeypackers/box-core/pricing';
 
 /** Everything the app stores in its settings: the shared company settings plus this device's preferences. */
 export interface Settings extends CompanySettings {
@@ -24,4 +26,6 @@ export interface AppData {
   orders: Order[];
   boxes: SavedBox[];
   settings: Settings;
+  /** Web price list for honeypackers.in (owner sets it; synced to Supabase later). Older files load with the defaults. */
+  web: WebShop;
 }
