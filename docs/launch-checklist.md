@@ -31,6 +31,7 @@ The price page shows "sample prices" in this stage and sends buyers to WhatsApp 
    - `PUBLIC_BUSINESS_NAME` = Honey Packers
    - `PUBLIC_BUSINESS_PHONE`, `PUBLIC_WHATSAPP_NUMBER` (e.g. `919876543210`, no + or spaces), `PUBLIC_BUSINESS_EMAIL`
    - `PUBLIC_BUSINESS_ADDRESS`, `PUBLIC_BUSINESS_CITY`, `PUBLIC_BUSINESS_GSTIN`, `PUBLIC_GRIEVANCE_OFFICER`
+   - `PUBLIC_BRAND_COLOR` (optional): shop colour, a preset (`kraft`, `forest`, `ocean`, `charcoal`, `maroon`, `teal`) or a hex like `#2f6b45`. Empty = kraft brown.
    - `BOXBOOK_REF` only if Stage 0's merge is not done
    - `GITHUB_TOKEN` only if the BoxBook or rajesh-hub repo is private (a read-only fine-grained token)
 5. [ ] **Deploy**, then open the `…netlify.app` address Netlify gives you.
@@ -40,6 +41,7 @@ The price page shows "sample prices" in this stage and sends buyers to WhatsApp 
 8. [ ] **Read the privacy policy** at `/privacy/` and remove the "Draft" line once you're happy with it.
 9. [ ] **Test on your phone:**
    - [ ] Home page shows your phone, WhatsApp and address
+   - [ ] Shop: filter, search, open a product, Add to cart (the mini cart opens), Checkout offers "Send order on WhatsApp"
    - [ ] Price your box: change size and quantity, the 3D box turns, "Order on WhatsApp" opens WhatsApp with the details
    - [ ] Send an enquiry from Contact, and the e-mail arrives
    - [ ] Strength calculator works
