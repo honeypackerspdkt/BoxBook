@@ -14,6 +14,9 @@ One codebase → Android + iOS via **Capacitor 7 + React 19 + Vite 7 + TypeScrip
 6. **Automatic daily backup on the phone**.
 7. Build for **Android and iOS**.
 
+## Working with the owner
+- Always ask questions as selectable choices (AskUserQuestion), never as open-ended text questions.
+
 ## Status
 
 ### Done (in `src/`)
