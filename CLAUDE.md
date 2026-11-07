@@ -9,6 +9,7 @@ One codebase → Android + iOS via **Capacitor 7 + React 19 + Vite 7 + TypeScrip
 2. Box calculator (same results as eBox) + price estimate (overhead, profit %, GST %).
 3. **Order management**: customers and orders.
 4. **All data stays on the phone** — no server, no login, no cloud.
+   **Superseded (7 Nov 2026):** owner chose full cloud sync (Supabase, offline-first, staff roles) plus the website/shop at honeypackers.in. See `docs/online-business-plan.md`.
 5. **Backup to file + restore from file**.
 6. **Automatic daily backup on the phone**.
 7. Build for **Android and iOS**.
