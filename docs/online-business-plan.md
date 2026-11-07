@@ -1,6 +1,6 @@
 # Honey Packers online: technical plan
 
-Status: **draft for review** (7 Nov 2026). No code has been written for it yet.
+Status: **draft for review** (7 Nov 2026). The database schema is written and tested (`supabase/`, `npm run db:test`). Nothing else is built yet.
 It covers the website and online shop at **honeypackers.in**, and cloud sync for the BoxBook app.
 
 ## 0. Decisions taken
@@ -16,6 +16,11 @@ It covers the website and online shop at **honeypackers.in**, and cloud sync for
 | Domain | **honeypackers.in** |
 | Repos | The **website goes in a separate repo** (`honeypackers-web`). The BoxBook app stays in this repo. |
 | GST | Default changed to **5%** for HSN 4819. Done in this branch. |
+| Supabase | **One project per app** in one shared Supabase organisation (owner creates it). Schema is in `supabase/` in this repo. |
+| Prices on site | **Shown to everyone.** |
+| Custom orders | **100% payment upfront.** |
+| Staff | **Only the owner for now.** Sales, Production, Dispatch and Accounts roles are built in, for later. |
+| Business details | Taken from **BoxBook Company profile** (`org_settings`). |
 
 Owner requirement 4 in `CLAUDE.md` ("all data stays on the phone, no server, no login") is **replaced** by the decisions above.
 Requirements 5 (file backup and restore) and 6 (daily backup on the phone) **still apply**.
@@ -71,9 +76,9 @@ Common rules for every business table:
 ### 2.1 Organisation and people
 | Table | Key columns |
 |---|---|
-| `orgs` | name, gstin, state_code, plan |
-| `members` | org_id, user_id, role (`owner` `manager` `sales` `production` `dispatch` `accounts`), active |
-| `buyers` | user_id, customer_id. Links a website login to a customer record. |
+| `organizations` | name, slug |
+| `user_profiles` | staff only: organization_id, role (`Administrator` `Sales` `Production` `Dispatch` `Accounts`), is_active. Names match the rajesh-hub supabase-kit functions. |
+| buyers | no table: `customers.user_id` links a website login to a customer record (`buyer_link()`). |
 
 ### 2.2 Core business (mirrors `src/lib/types.ts`)
 | Table | From | Notes |
@@ -204,7 +209,7 @@ The site starts from `rajesh-hub/templates/site`: Astro on Netlify, hub tokens, 
    - cart → pincode check (zone or courier, delivery charge, days) → login with phone OTP → address + GSTIN (optional) → Razorpay.
    - Then the webhook marks it paid, the order becomes `confirmed`, and it appears in the BoxBook "Web orders" inbox.
 2. **Custom with live price:**
-   - "Pay 30% advance" uses the same checkout with an advance line; the balance is collected before dispatch with a payment link.
+   - Custom orders are paid **100% upfront** at checkout (`price_rules.advance_pct`, default 100).
    - "Order a sample" is a fixed-price sample item.
 3. **Request quote:**
    - creates a `quotes` row → staff price it in BoxBook → WhatsApp + e-mail with a Razorpay payment link → when paid it becomes an order.
@@ -280,10 +285,10 @@ The site starts from `rajesh-hub/templates/site`: Astro on Netlify, hub tokens, 
 | 5 | Growth | IndiaMART/TradeIndia listings, Merchant feed, Pixel/CAPI ads, guides, credit customers, ONDC later | — |
 
 ## 10. Still to decide
-1. Supabase account: under your Google account (rajeshhdct@gmail.com) or a business account?
+1. ~~Supabase account~~: owner will create one shared organisation for all apps, one project per app.
 2. Business details for the site and Razorpay: legal name, address, GSTIN, grievance officer name.
 3. Standard box list: the sizes, plies and pack quantities to sell online first.
 4. Delivery zones: pincodes covered by your own vehicle, charge per kg or per trip, free-delivery limit.
-5. Advance % for custom orders, and the minimum order value.
-6. Staff: how many people, and which roles.
-7. Should the website show prices to everyone, or only after login (some box makers hide rates from competitors)?
+5. ~~Advance %~~ (100% upfront). Minimum order value is still open.
+6. ~~Staff~~: only the owner for now; all four roles are built in.
+7. ~~Prices~~: shown to everyone.

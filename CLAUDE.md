@@ -80,6 +80,14 @@ One codebase → Android + iOS via **Capacitor 7 + React 19 + Vite 7 + TypeScrip
 - Release signing: create a keystore for `assembleRelease` (Android); pick a team in Xcode for a real iPhone.
 - Not yet tested on a physical phone: share sheet, restore-from-file picker, WhatsApp/tel links.
 
+### Supabase schema (cloud sync + website)
+- `supabase/migrations/*.sql` (core, shop, functions, storage) + `supabase/README.md` (roles, how to apply). Not applied to any real project yet:
+  the owner is creating one shared Supabase organisation with one project per app.
+- Tables use the hub names `organizations`, `user_profiles`, `audit_logs`. Synced tables carry `id, org_id, rev, updated_at, updated_by, deleted_at`;
+  trigger `sync_stamp` rejects an update whose `rev` is not the stored one (SQLSTATE `BB409`). `sync_push(changes)` / `sync_pull(since)` are the sync RPCs;
+  invoice numbers only via `assign_invoice_no()` (online).
+- Test: `npm run db:test` (throw-away local Postgres + `supabase/tests/supabase_stub.sql`, then `supabase/tests/schema.test.sql`).
+
 ### Build commands
 - Web + sync: `npm run build && LANG=en_US.UTF-8 npx cap sync`
 - Android debug APK: `cd android && ./gradlew assembleDebug` -> `android/app/build/outputs/apk/debug/app-debug.apk` (needs ~3 GB free disk the first time)
