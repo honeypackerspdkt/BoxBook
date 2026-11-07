@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Box, Check, ClipboardList, Copy, FileText, Link2, MessageCircle, Pencil, Phone, Plus, Share2, Trash2, UserPlus, Wallet, X } from 'lucide-react';
 import { usePerms, useStore } from '../store';
 import { canMoveStatus } from '../lib/roles';
@@ -136,8 +136,12 @@ export function OrdersList() {
 }
 
 export function OrderDetail({ id }: { id: string }) {
-  const { data, upsertOrder, updateSettings, deleteOrder, toast, cloud } = useStore();
+  const { data, upsertOrder, updateSettings, deleteOrder, toast, cloud, markInboxSeen } = useStore();
   const p = usePerms();
+  const isNewWebOrder = !!data.orders.find((x) => x.id === id && x.source === 'web') && !(data.settings.inboxSeen || []).includes(id);
+  useEffect(() => {
+    if (isNewWebOrder) markInboxSeen([id]);
+  }, [isNewWebOrder, id]); // eslint-disable-line react-hooks/exhaustive-deps
   const nav = useNav();
   const [invBusy, setInvBusy] = useState(false);
   const [linkBusy, setLinkBusy] = useState(false);

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
-import { AlertTriangle, Calculator, CheckCircle2, ClipboardList, ShieldCheck, UserPlus } from 'lucide-react';
-import { useStore } from '../store';
+import { AlertTriangle, Calculator, CheckCircle2, ClipboardList, Inbox as InboxIcon, ShieldCheck, UserPlus } from 'lucide-react';
+import { usePerms, useStore } from '../store';
+import { inbox } from '../lib/inbox';
 import { useNav } from '../nav';
 import { isOpen, orderTotals } from '@honeypackers/box-core/calc';
 import { addDays, fmtDate, money0, relDays, timeAgo, todayISO } from '../lib/format';
@@ -13,8 +14,10 @@ function greeting() {
 
 export function Home() {
   const { data } = useStore();
+  const p = usePerms();
   const nav = useNav();
   const { settings } = data;
+  const box = useMemo(() => inbox(data), [data]);
   const cur = settings.currency;
   const customers = useMemo(() => new Map(data.customers.map((c) => [c.id, c])), [data.customers]);
 
@@ -61,6 +64,18 @@ export function Home() {
     <>
       <Header title={settings.businessName || 'BoxBook'} subtitle={greeting()} large />
       <Page>
+        {p.inbox && box.count > 0 && (
+          <button onClick={() => nav.push({ name: 'inbox' })} className="mb-3 flex w-full items-center gap-3 rounded-2xl bg-primary px-4 py-3 text-left text-primary-foreground">
+            <InboxIcon size={20} />
+            <span className="min-w-0 flex-1">
+              <span className="block text-[14px] font-semibold">
+                {[box.orders.length && `${box.orders.length} new website order${box.orders.length > 1 ? 's' : ''}`, box.enquiries.filter((e) => e.status === 'new').length && `${box.enquiries.filter((e) => e.status === 'new').length} new enquir${box.enquiries.filter((e) => e.status === 'new').length > 1 ? 'ies' : 'y'}`].filter(Boolean).join(' · ')}
+              </span>
+              <span className="block truncate text-[12px] opacity-85">From honeypackers.in</span>
+            </span>
+            <span className="text-[13px] font-semibold">Open</span>
+          </button>
+        )}
         <button
           onClick={() => nav.push({ name: 'backup' })}
           className={`mb-5 flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left ${backupStale && hasData ? 'bg-warn/15 text-warn' : 'bg-good/10 text-good'}`}

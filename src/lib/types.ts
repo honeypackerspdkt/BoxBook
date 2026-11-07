@@ -16,6 +16,21 @@ export interface Settings extends CompanySettings {
   driveAuto: boolean;
   lastDriveBackupAt: string; // ISO
   lastDriveAutoBackup: string; // yyyy-mm-dd
+  /** Website orders already looked at on this phone (Inbox). */
+  inboxSeen: string[];
+}
+
+/** Enquiry from the website contact form (Supabase `enquiries`, saved by the site's submission-created function). */
+export interface Enquiry {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  message: string;
+  page: string;
+  status: 'new' | 'contacted' | 'closed';
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface AppData {
@@ -28,4 +43,6 @@ export interface AppData {
   settings: Settings;
   /** Web price list for honeypackers.in (owner sets it; synced to Supabase later). Older files load with the defaults. */
   web: WebShop;
+  /** Website enquiries (cloud sync only; empty otherwise). */
+  enquiries: Enquiry[];
 }

@@ -380,3 +380,28 @@ suite('controller flows: move a phone to the cloud, other phones join', () => {
     expect(A.data.orders.find((o) => o.id === job.id)?.status).toBe('production');
   });
 });
+
+suite('website enquiries reach the app', () => {
+  let pool: pg.Pool;
+  const owner = uid();
+  let orgId = '';
+  beforeAll(async () => {
+    pool = new pg.Pool({ connectionString: url, max: 2 });
+    await pool.query('insert into auth.users (id, email) values ($1, $2)', [owner, 'enq-owner@x.in']);
+    orgId = await asUser(pool, owner, async (c) => (await c.query(`select public.create_organization('Enquiry Packers') as id`)).rows[0].id);
+  });
+  afterAll(() => pool?.end());
+
+  it('an enquiry saved by the website syncs in; marking it contacted syncs back', async () => {
+    // what the website's submission-created function does (service role)
+    const { rows } = await pool.query(`insert into enquiries (org_id, name, phone, message, page, consent) values ($1, 'Selvi', '9000000000', '5 ply 400×300×300, 1000 pcs', 'contact', true) returning id`, [orgId]);
+    const D = device(pgApi(pool, owner), orgId, 'Administrator', emptyData());
+    await D.sync();
+    expect(D.data.enquiries).toMatchObject([{ id: rows[0].id, name: 'Selvi', status: 'new', message: '5 ply 400×300×300, 1000 pcs' }]);
+    D.edit((d) => ({ ...d, enquiries: d.enquiries.map((e) => ({ ...e, status: 'contacted' as const })) }));
+    await D.sync();
+    expect(D.engine.pending).toBe(0);
+    const after = await pool.query('select status, name from enquiries where id = $1', [rows[0].id]);
+    expect(after.rows[0]).toEqual({ status: 'contacted', name: 'Selvi' }); // only the status changed
+  });
+});

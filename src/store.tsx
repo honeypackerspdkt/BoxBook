@@ -4,9 +4,10 @@ import { emptyData, isNative, loadData, saveData } from './lib/storage';
 import { backupName, saveBackupOnDevice, toJson } from './lib/backup';
 import { driveSession, uploadDriveBackup } from './lib/drive';
 import { todayISO, uid } from './lib/format';
-import type { AppData, Customer, Order, SavedBox, Settings, WebShop } from './lib/types';
+import type { AppData, Customer, Enquiry, Order, SavedBox, Settings, WebShop } from './lib/types';
 import { CloudController, type CloudStatus } from './lib/cloud/controller';
 import { withUuidIds } from './lib/cloud/migrate';
+import { arrivalText, arrivals, markSeen } from './lib/inbox';
 import { perms, type Perms } from './lib/roles';
 
 interface Store {
@@ -20,6 +21,9 @@ interface Store {
   deleteBox: (id: string) => void;
   updateSettings: (patch: Partial<Settings>) => void;
   updateWeb: (web: WebShop) => void;
+  /** Inbox: website orders looked at on this phone. */
+  markInboxSeen: (orderIds: string[]) => void;
+  setEnquiryStatus: (id: string, status: Enquiry['status']) => void;
   replaceAll: (d: AppData) => Promise<void>;
   backupNow: () => Promise<void>;
   toast: (msg: string) => void;
@@ -41,6 +45,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const backupRunning = useRef(false);
   const driveRunning = useRef(false);
 
+  const toastRef = useRef<(m: string) => void>(() => {});
   const toast = useCallback((msg: string) => {
     setToastMsg(msg);
     window.clearTimeout(toastTimer.current);
@@ -55,9 +60,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   /** Replace the data without recording a local change (changes that came from the cloud). */
   const setUntracked = useCallback(
     (next: AppData) => {
+      const prev = dataRef.current;
       dataRef.current = next;
       setData(next);
       scheduleSave();
+      // Something new from the website came in with a sync.
+      const msg = arrivalText(arrivals(prev, next));
+      if (msg) toastRef.current(msg);
     },
     [scheduleSave],
   );
@@ -76,6 +85,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     },
     [scheduleSave],
   );
+
+  toastRef.current = toast;
 
   /** Once a day, keep a copy of all data on the phone. */
   const autoBackupIfDue = useCallback(async () => {
@@ -232,6 +243,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const updateWeb = (web: WebShop) => commit((d) => ({ ...d, web }));
 
+  const markInboxSeen = (ids: string[]) => {
+    const d = dataRef.current;
+    const next = markSeen(d, ids);
+    if (next.length !== (d.settings.inboxSeen || []).length || next.some((x, i) => x !== d.settings.inboxSeen[i])) updateSettings({ inboxSeen: next });
+  };
+
+  const setEnquiryStatus = (id: string, status: Enquiry['status']) =>
+    commit((d) => ({ ...d, enquiries: d.enquiries.map((e) => (e.id === id ? { ...e, status, updatedAt: now() } : e)) }));
+
   const replaceAll = async (incoming: AppData) => {
     // Safety copy of what is on the phone right now, before it is replaced.
     try {
@@ -259,7 +279,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   return (
     <Ctx.Provider
-      value={{ data, ready, upsertCustomer, deleteCustomer, upsertOrder, deleteOrder, upsertBox, deleteBox, updateSettings, updateWeb, replaceAll, backupNow, toast, toastMsg, cloud, cloudStatus }}
+      value={{ data, ready, upsertCustomer, deleteCustomer, upsertOrder, deleteOrder, upsertBox, deleteBox, updateSettings, updateWeb, markInboxSeen, setEnquiryStatus, replaceAll, backupNow, toast, toastMsg, cloud, cloudStatus }}
     >
       {children}
     </Ctx.Provider>

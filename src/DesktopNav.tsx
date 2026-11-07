@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react';
-import { Boxes, Building2, Calculator, CircleHelp, ClipboardList, Cloud, DatabaseBackup, Globe, Home, UserCog, Users } from 'lucide-react';
+import { Boxes, Building2, Calculator, CircleHelp, ClipboardList, Cloud, DatabaseBackup, Globe, Home, Inbox as InboxIcon, UserCog, Users } from 'lucide-react';
 import { usePerms, useStore } from './store';
 import { tabsFor, type Perms } from './lib/roles';
 import { useNav, type Route, type Tab } from './nav';
@@ -19,6 +19,7 @@ const open = (route: Route) => (n: ReturnType<typeof useNav>) => {
   n.push(route);
 };
 const LIBRARY: Item[] = [
+  { key: 'inbox', label: 'Inbox', icon: InboxIcon, go: open({ name: 'inbox' }), show: (p) => p.inbox },
   { key: 'boxes', label: 'Saved boxes', icon: Boxes, go: open({ name: 'boxes' }), show: (p) => p.editOrders },
   { key: 'company', label: 'Company profile', icon: Building2, go: open({ name: 'company' }), show: (p) => p.ownerSettings },
   { key: 'business', label: 'Pricing defaults', icon: Calculator, go: open({ name: 'business' }), show: (p) => p.ownerSettings },

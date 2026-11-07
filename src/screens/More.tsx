@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Box, Building2, Calculator, CircleHelp, Cloud, DatabaseBackup, Globe, Plus, UserCog } from 'lucide-react';
+import { Box, Building2, Calculator, CircleHelp, Cloud, DatabaseBackup, Globe, Inbox as InboxIcon, Plus, UserCog } from 'lucide-react';
 import { setupProblems } from '@honeypackers/box-core/pricing';
 import { usePerms, useStore } from '../store';
 import { useNav } from '../nav';
@@ -7,6 +7,7 @@ import { specLabel } from '@honeypackers/box-core/calc';
 import { timeAgo } from '../lib/format';
 import type { AppData, Settings } from '../lib/types';
 import type { CloudStatus } from '../lib/cloud/controller';
+import { inbox } from '../lib/inbox';
 import { Empty, Field, Header, List, NumInput, Page, Row, Section, Segmented, Fab } from '../ui';
 
 function webSummary(w: AppData['web']): string {
@@ -34,6 +35,7 @@ const iconCls = 'grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primar
 export function More() {
   const { data, updateSettings, cloudStatus } = useStore();
   const p = usePerms();
+  const inboxCount = inbox(data).count;
   const nav = useNav();
   const { settings } = data;
   return (
@@ -42,6 +44,19 @@ export function More() {
       <Page>
         <Section>
           <List>
+            {p.inbox && (
+              <Row
+                onClick={() => nav.push({ name: 'inbox' })}
+                icon={
+                  <span className={iconCls}>
+                    <InboxIcon size={20} />
+                  </span>
+                }
+                title="Inbox"
+                sub={inboxCount ? `${inboxCount} new from the website` : 'Website orders and enquiries'}
+                right={inboxCount ? <span className="grid h-6 min-w-6 place-items-center rounded-full bg-primary px-1.5 text-[12px] font-bold text-primary-foreground">{inboxCount}</span> : undefined}
+              />
+            )}
             {p.editOrders && (
               <Row
                 onClick={() => nav.push({ name: 'boxes' })}

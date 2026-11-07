@@ -19,6 +19,7 @@ export const defaultSettings: Settings = {
   driveAuto: false,
   lastDriveBackupAt: '',
   lastDriveAutoBackup: '',
+  inboxSeen: [],
 };
 
 export function emptyData(): AppData {
@@ -31,6 +32,7 @@ export function emptyData(): AppData {
     boxes: [],
     settings: { ...defaultSettings },
     web: defaultWebShop(),
+    enquiries: [],
   };
 }
 
@@ -53,6 +55,7 @@ export function normalize(raw: unknown): AppData {
       defaults: { ...defaultSettings.defaults, ...(d.settings?.defaults || {}) },
     },
     web: normalizeWebShop(d.web),
+    enquiries: Array.isArray(d.enquiries) ? d.enquiries : [],
   };
 }
 

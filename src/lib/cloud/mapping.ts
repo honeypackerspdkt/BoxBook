@@ -1,14 +1,14 @@
 import type { DeliveryZone, WebShop } from '@honeypackers/box-core/pricing';
 import { normalizeWebShop } from '@honeypackers/box-core/pricing';
-import type { AppData, Customer, Order, OrderItem, Payment, SavedBox, Settings } from '../types';
+import type { AppData, Customer, Enquiry, Order, OrderItem, Payment, SavedBox, Settings } from '../types';
 
 /**
  * App records ↔ Supabase rows (supabase/migrations). Rows use the database column names and leave out
  * org_id / rev / updated_at / updated_by: the sync engine adds and reads those.
  */
-export type Table = 'customers' | 'boxes' | 'orders' | 'order_items' | 'payments' | 'delivery_zones';
+export type Table = 'customers' | 'boxes' | 'orders' | 'order_items' | 'payments' | 'delivery_zones' | 'enquiries';
 /** Push order: parents before children (foreign keys). */
-export const TABLES: Table[] = ['customers', 'boxes', 'orders', 'order_items', 'payments', 'delivery_zones'];
+export const TABLES: Table[] = ['customers', 'boxes', 'orders', 'order_items', 'payments', 'delivery_zones', 'enquiries'];
 
 export type Row = { id: string } & Record<string, unknown>;
 export interface Entry {
@@ -105,6 +105,9 @@ export const zoneRow = (z: DeliveryZone, sort: number): Row => ({
   sort: z.sort ?? sort,
 });
 
+/** Only the status is changed in the app; the rest comes from the website. */
+export const enquiryRow = (e: Enquiry): Row => ({ id: e.id, status: e.status });
+
 /** Every syncable row in the app data, by key. */
 export function rowsOf(d: AppData): Map<string, Entry> {
   const out = new Map<string, Entry>();
@@ -117,6 +120,7 @@ export function rowsOf(d: AppData): Map<string, Entry> {
     o.payments.forEach((p) => put('payments', paymentRow(o, p)));
   }
   d.web.zones.forEach((z, i) => z.id && put('delivery_zones', zoneRow(z, i)));
+  (d.enquiries || []).forEach((e) => put('enquiries', enquiryRow(e)));
   return out;
 }
 
@@ -222,6 +226,23 @@ export function applyRow(d: AppData, table: string, row: Row): AppData {
         }
       }
       return { ...d, orders: d.orders.map((o) => (o.id === orderId ? next : o)) };
+    }
+    case 'enquiries': {
+      const list = d.enquiries || [];
+      if (deleted) return { ...d, enquiries: list.filter((e) => e.id !== id) };
+      const prev = list.find((e) => e.id === id);
+      const e: Enquiry = {
+        id,
+        name: str(row.name),
+        phone: str(row.phone),
+        email: str(row.email),
+        message: str(row.message),
+        page: str(row.page),
+        status: (['new', 'contacted', 'closed'].includes(str(row.status)) ? str(row.status) : 'new') as Enquiry['status'],
+        createdAt: prev?.createdAt || iso(row.created_at),
+        updatedAt: iso(row.updated_at),
+      };
+      return { ...d, enquiries: prev ? list.map((x) => (x.id === id ? e : x)) : [e, ...list] };
     }
     case 'delivery_zones': {
       const zones = d.web.zones.filter((z) => z.id !== id);

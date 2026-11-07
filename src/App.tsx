@@ -16,6 +16,7 @@ import { Company } from './screens/Company';
 import { WebPrices } from './screens/WebPrices';
 import { CloudSync } from './screens/Cloud';
 import { Team } from './screens/Team';
+import { Inbox } from './screens/Inbox';
 import { Help } from './screens/Help';
 import { Backup } from './screens/Backup';
 import { DesktopNav } from './DesktopNav';
@@ -70,6 +71,8 @@ function renderRoute(r: Route) {
       return <CloudSync />;
     case 'team':
       return <Team />;
+    case 'inbox':
+      return <Inbox />;
     case 'help':
       return <Help />;
   }

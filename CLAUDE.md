@@ -136,6 +136,12 @@ One codebase → Android + iOS via **Capacitor 7 + React 19 + Vite 7 + TypeScrip
   website repo (`honeypackers-web/netlify/lib/shop.ts`). App: OrderDetail "Send payment link" (office roles, cloud on, amount due) →
   `cloud.paymentLink()` (uploads, then calls `${VITE_SHOP_URL}/.netlify/functions/payment-link`) → WhatsApp to the customer.
   Payments arrive in the app through sync (mode "Razorpay").
+- Inbox (`screens/Inbox.tsx`, route `inbox`; Home banner, More row with count, desktop sidebar; office roles): website orders
+  (`source: 'web'`) not yet opened on this phone (`settings.inboxSeen`, marked when the order is opened) and open enquiries
+  (`AppData.enquiries`, synced from Supabase `enquiries`; only `status` is pushed back). `lib/inbox.ts` (`inbox`, `arrivals`,
+  `arrivalText`, `markSeen`); `store.setUntracked` toasts arrivals after a sync. Enquiry actions: call, WhatsApp, make order
+  (finds/creates the customer by mobile), contacted, close. Enquiries get into Supabase through the website's Netlify
+  `submission-created` function.
 - Not done yet: logo upload to storage, Realtime push (polling for now).
 
 ### Build commands
