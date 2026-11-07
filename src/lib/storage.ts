@@ -26,7 +26,7 @@ export const defaultSettings: Settings = {
   defaultHsn: '48191010',
   defaultUnit: 'Nos.',
   currency: '₹',
-  defaults: { overhead: 0, profitPct: 25, taxPct: 18 },
+  defaults: { overhead: 0, profitPct: 25, taxPct: 5 },
   theme: 'system',
   nextOrderNo: 1,
   autoBackup: true,
