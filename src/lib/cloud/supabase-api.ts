@@ -62,6 +62,12 @@ export async function currentUser(): Promise<{ id: string; email: string } | nul
   return u ? { id: u.id, email: u.email || (u.phone ? `+${u.phone.replace(/^\+/, '')}` : '') } : null;
 }
 
+/** Access token of the signed-in person, for the website's server functions (payment links). */
+export async function accessToken(): Promise<string | null> {
+  const { data } = await getClient().auth.getSession();
+  return data.session?.access_token ?? null;
+}
+
 export async function signOut() {
   await getClient().auth.signOut();
 }

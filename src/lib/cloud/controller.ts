@@ -29,6 +29,9 @@ const supabaseDeps = {
   verifyPhoneCode: async (mobile: string, code: string) => (await load()).verifyPhoneCode(mobile, code),
   createOrganization: async (name: string, you: string) => (await load()).createOrganization(name, you),
   signOut: async () => (await load()).signOut(),
+  accessToken: async () => (await load()).accessToken(),
+  shopUrl: (import.meta.env.VITE_SHOP_URL || '').trim().replace(/\/+$/, ''),
+  fetch: (input: RequestInfo | URL, init?: RequestInit) => fetch(input, init),
   myInvitation: async () => (await load()).myInvitation(),
   acceptInvitation: async (name: string) => (await load()).acceptInvitation(name),
   team: async (orgId: string) => (await load()).team(orgId),
@@ -216,6 +219,27 @@ export class CloudController {
   }
   updateMember(id: string, patch: { role?: string; is_active?: boolean }) {
     return this.deps.updateMember(id, patch);
+  }
+
+  /**
+   * Razorpay payment link for the amount due on an order, made by the website's server (payment-link function).
+   * The order is uploaded first; the server works out the amount. Returns the link to send to the customer.
+   */
+  async paymentLink(orderId: string): Promise<{ url: string; amount: number; orderNumber: string }> {
+    if (!this.engine) throw new Error('Turn on cloud sync first (More → Cloud sync).');
+    if (!this.deps.shopUrl) throw new Error('Online payment is not set up in this build.');
+    await this.syncNow();
+    if (this.engine.state.outbox[`orders:${orderId}`] || !this.engine.state.base[`orders:${orderId}`]) throw new Error('The order has not reached the cloud yet. Check the internet connection and try again.');
+    const token = await this.deps.accessToken();
+    if (!token) throw new Error('Please sign in again (More → Cloud sync).');
+    const r = await this.deps.fetch(`${this.deps.shopUrl}/.netlify/functions/payment-link`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+      body: JSON.stringify({ orderId }),
+    });
+    const out = (await r.json().catch(() => ({}))) as { url?: string; amount?: number; orderNumber?: string; error?: string };
+    if (!r.ok || !out.url) throw new Error(out.error || 'Could not make the payment link.');
+    return { url: out.url, amount: out.amount || 0, orderNumber: out.orderNumber || '' };
   }
 
   /** Production / dispatch move an order on through the server's checked function, then pull the result. */

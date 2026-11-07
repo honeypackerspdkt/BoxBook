@@ -400,4 +400,62 @@ do $$ begin
 end $$;
 reset role;
 
+-- ───── website orders + Razorpay payments (service role only) ─────
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000c2', false);
+set role authenticated;
+select set_config('test.org1', :'org1', false);
+do $$ begin
+  begin
+    perform public.web_create_order(current_setting('test.org1')::uuid, auth.uid(), '[{"description":"x","qty":1,"rate":1}]');
+    raise exception 'buyer called web_create_order directly';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.record_razorpay_payment(current_setting('test.org1')::uuid, gen_random_uuid(), 1, 'pay_fake');
+    raise exception 'buyer recorded a payment';
+  exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+
+set role service_role;
+select set_config('test.org1', :'org1', false);
+do $$
+declare r jsonb; p1 jsonb; p2 jsonb;
+begin
+  begin
+    perform public.web_create_order(current_setting('test.org1')::uuid, '00000000-0000-0000-0000-0000000000b1', '[{"description":"x","qty":1,"rate":1}]');
+    raise exception 'unlinked user got an order';
+  exception when others then assert sqlerrm like 'buyer is not linked%', sqlerrm; end;
+  -- buyer c2 (Selvi) was linked earlier with buyer_link
+  r := public.web_create_order(current_setting('test.org1')::uuid, '00000000-0000-0000-0000-0000000000c2',
+         '[{"description":"3 ply 300×200×150","qty":500,"rate":14.84,"hsn":"48191010","unit":"Nos.","spec":{"length":300,"width":200,"height":150,"ply":3}},{"description":"Delivery","qty":1,"rate":300}]',
+         '{"pincode":"622001","mode":"own"}', 5, 'Website order');
+  assert r ->> 'number' like 'ORD-%', r::text;
+  assert (select count(*) from order_items where order_id = (r ->> 'id')::uuid) = 2;
+  assert (select source || '/' || status from orders where id = (r ->> 'id')::uuid) = 'web/quote';
+  assert (select spec ->> 'length' from order_items where order_id = (r ->> 'id')::uuid and position = 0) = '300';
+  begin
+    perform public.web_create_order(current_setting('test.org1')::uuid, '00000000-0000-0000-0000-0000000000c2', '[{"description":"free","qty":1,"rate":-5}]');
+    raise exception 'negative rate accepted';
+  exception when others then assert sqlerrm like 'bad item%', sqlerrm; end;
+
+  p1 := public.record_razorpay_payment(current_setting('test.org1')::uuid, (r ->> 'id')::uuid, 8106, 'pay_ABC', 'order_XYZ', 'Website');
+  p2 := public.record_razorpay_payment(current_setting('test.org1')::uuid, (r ->> 'id')::uuid, 8106, 'pay_ABC', 'order_XYZ', 'Website');
+  assert (p1 ->> 'recorded')::boolean and not (p2 ->> 'recorded')::boolean, 'recorded once';
+  assert (select count(*) from payments where razorpay_payment_id = 'pay_ABC') = 1;
+  assert (select status from orders where id = (r ->> 'id')::uuid) = 'confirmed', 'paid quote is confirmed';
+  begin
+    perform public.record_razorpay_payment(gen_random_uuid(), (r ->> 'id')::uuid, 1, 'pay_other_org');
+    raise exception 'payment for the wrong business';
+  exception when others then assert sqlerrm = 'order not found', sqlerrm; end;
+end $$;
+reset role;
+
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000c2', false);
+set role authenticated;
+do $$ begin
+  assert (select count(*) from orders where source = 'web') = 1, 'buyer sees their website order';
+  assert (select count(*) from payments where mode = 'Razorpay') = 1, 'and its payment';
+end $$;
+reset role;
+
 select 'all schema tests passed' as result;

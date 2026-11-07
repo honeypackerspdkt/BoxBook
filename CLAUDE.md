@@ -131,6 +131,11 @@ One codebase → Android + iOS via **Capacitor 7 + React 19 + Vite 7 + TypeScrip
   Edge Function `supabase/functions/send-sms-msg91` (`handler.ts` pure + tested with `standardwebhooks`; `index.ts` Deno entry) sends it
   through the MSG91 flow API (`MSG91_AUTH_KEY`, `MSG91_TEMPLATE_ID`, `MSG91_OTP_VAR`, `SEND_SMS_HOOK_SECRET`). Setup: `supabase/README.md`.
   Staff can be invited by mobile number (`…06_phone_login.sql`: `invitations.phone`, last 10 digits, `phone10()`).
+- Online payment (Razorpay): `supabase/migrations/…07_payments.sql` — `web_create_order` (website order with a real number, service role only)
+  and `record_razorpay_payment` (once per Razorpay payment id; a paid quotation becomes confirmed). The Razorpay server functions live in the
+  website repo (`honeypackers-web/netlify/lib/shop.ts`). App: OrderDetail "Send payment link" (office roles, cloud on, amount due) →
+  `cloud.paymentLink()` (uploads, then calls `${VITE_SHOP_URL}/.netlify/functions/payment-link`) → WhatsApp to the customer.
+  Payments arrive in the app through sync (mode "Razorpay").
 - Not done yet: logo upload to storage, Realtime push (polling for now).
 
 ### Build commands

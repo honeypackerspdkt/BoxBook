@@ -105,3 +105,50 @@ describe('withUuidIds', () => {
     expect(withUuidIds(data).changed).toBe(0);
   });
 });
+
+describe('payment link from the app', () => {
+  it('uploads first, then asks the website for a link with the signed-in token', async () => {
+    const { CloudController } = await import('./controller');
+    const orderRow = { id: 'o-1', number: 'ORD-0007', customer_id: '', date: '2026-11-01', due_date: null, status: 'confirmed', discount: 0, tax_pct: 5, notes: '', invoice: {}, delivery: {}, source: 'app', rev: 3, updated_at: '2026-11-02T00:00:00Z', deleted_at: null };
+    let data = emptyData();
+    const calls: { url: string; init: RequestInit }[] = [];
+    let pulls = 0;
+    const api = {
+      push: async () => [],
+      pull: async () => ({ server_time: new Date().toISOString(), org_id: 'org', role: 'Sales', settings: null, price_rules: null, orders: pulls++ === 0 ? [orderRow] : [] }),
+      saveSettings: async () => ({ status: 'ok' as const, row: {} }),
+      saveWebRules: async () => ({ status: 'ok' as const, row: {} }),
+      assignOrderNo: async () => '',
+      assignInvoiceNo: async () => '',
+      setCounter: async () => {},
+    };
+    const ctl = new CloudController(
+      { getData: () => data, setDataUntracked: (n) => (data = n), backupNow: async () => {} },
+      {
+        cloudConfigured: true,
+        currentUser: async () => ({ id: 'u', email: '+919876543210' }),
+        myProfile: async () => ({ orgId: 'org', orgName: 'HP', role: 'Sales', name: '' }),
+        myInvitation: async () => null,
+        loadSyncState: async () => null,
+        saveSyncState: async () => {},
+        clearSyncState: async () => {},
+        accessToken: async () => 'tok-1',
+        shopUrl: 'https://shop.test',
+        fetch: (async (url: RequestInfo | URL, init?: RequestInit) => {
+          calls.push({ url: String(url), init: init! });
+          return new Response(JSON.stringify({ url: 'https://rzp.io/i/x', amount: 5190, orderNumber: 'ORD-0007' }), { status: 200 });
+        }) as typeof fetch,
+        api: () => api,
+      },
+    );
+    await expect(ctl.paymentLink('o-1')).rejects.toThrow(/cloud sync/);
+    await ctl.init();
+    await ctl.join('replace');
+    expect(data.orders.map((o) => o.number)).toEqual(['ORD-0007']);
+    expect(await ctl.paymentLink('o-1')).toEqual({ url: 'https://rzp.io/i/x', amount: 5190, orderNumber: 'ORD-0007' });
+    expect(calls[0].url).toBe('https://shop.test/.netlify/functions/payment-link');
+    expect((calls[0].init.headers as Record<string, string>).authorization).toBe('Bearer tok-1');
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({ orderId: 'o-1' });
+    await expect(ctl.paymentLink('not-uploaded')).rejects.toThrow(/not reached the cloud/);
+  });
+});

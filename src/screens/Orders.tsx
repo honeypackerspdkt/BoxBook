@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Box, Check, ClipboardList, Copy, FileText, MessageCircle, Pencil, Phone, Plus, Share2, Trash2, UserPlus, Wallet, X } from 'lucide-react';
+import { Box, Check, ClipboardList, Copy, FileText, Link2, MessageCircle, Pencil, Phone, Plus, Share2, Trash2, UserPlus, Wallet, X } from 'lucide-react';
 import { usePerms, useStore } from '../store';
 import { canMoveStatus } from '../lib/roles';
 import { useNav } from '../nav';
@@ -140,6 +140,7 @@ export function OrderDetail({ id }: { id: string }) {
   const p = usePerms();
   const nav = useNav();
   const [invBusy, setInvBusy] = useState(false);
+  const [linkBusy, setLinkBusy] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   const [delOrder, setDelOrder] = useState(false);
   const [delPay, setDelPay] = useState<string | null>(null);
@@ -174,6 +175,25 @@ export function OrderDetail({ id }: { id: string }) {
   const share = async () => {
     const m = await shareText(`Order ${o.number}`, text);
     if (m) toast(m);
+  };
+
+  /** Razorpay payment link for the amount due, sent to the customer on WhatsApp (or the share sheet). */
+  const sendPayLink = async () => {
+    if (linkBusy) return;
+    setLinkBusy(true);
+    try {
+      const link = await cloud.paymentLink(o.id);
+      const msg = `${data.settings.businessName || 'Honey Packers'}: payment for order ${link.orderNumber || o.number}\nAmount: ${money(link.amount, cur)}\nPay securely here: ${link.url}`;
+      if (c?.phone) window.open(waHref(c.phone, msg), '_blank');
+      else {
+        const m = await shareText(`Payment link ${o.number}`, msg);
+        if (m) toast(m);
+      }
+    } catch (e) {
+      toast(String((e as Error)?.message || e));
+    } finally {
+      setLinkBusy(false);
+    }
   };
 
   /** Makes the GST tax invoice PDF and opens the share sheet (WhatsApp, e-mail, Drive…). */
@@ -413,6 +433,11 @@ export function OrderDetail({ id }: { id: string }) {
 
         {p.editOrders && (
         <>
+        {cloud.active && t.balance > 0.5 && o.status !== 'cancelled' && (
+          <button className="btn-ghost mb-3 w-full" disabled={linkBusy} onClick={sendPayLink}>
+            <Link2 size={18} /> {linkBusy ? 'Making link…' : `Send payment link (${money(t.balance, cur)})`}
+          </button>
+        )}
         <button className="btn-primary mb-3 w-full" disabled={invBusy} onClick={sendInvoice}>
           <FileText size={18} /> {invBusy ? 'Making PDF…' : o.invoiceNo ? `Share invoice ${o.invoiceNo} (PDF)` : 'Make & share invoice (PDF)'}
         </button>

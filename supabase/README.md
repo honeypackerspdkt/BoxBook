@@ -9,6 +9,7 @@ Plan: [`docs/online-business-plan.md`](../docs/online-business-plan.md). One Sup
 | `migrations/…02_shop.sql` | `products`, `price_rules` (web price list, 100% advance by default), `delivery_zones`, `quotes`, `enquiries`, views `orders_production`, `order_items_production`, `public_business` |
 | `migrations/…03_functions.sql` | `create_organization`, `next_number`, `set_counter`, `assign_order_no`, `assign_invoice_no`, `set_order_status`, `buyer_link`, `sync_push`, `sync_pull` |
 | `migrations/…05_staff.sql` | `invitations`, `my_invitation()`, `accept_invitation()`: the owner invites an e-mail + role, that person signs in with the same e-mail and joins; a business always keeps one active owner |
+| `migrations/…07_payments.sql` | `web_create_order`, `record_razorpay_payment` for the website's Razorpay server functions (service role only) |
 | `migrations/…04_storage.sql` | buckets `public-media` (logo, product photos) and `private` (invoices, artwork) + policies |
 | `tests/schema.test.sql` | RLS and sync tests for every role (owner, sales, production, dispatch, other business, buyers, anonymous) |
 | `tests/supabase_stub.sql` | stand-in for Supabase's `auth` / `storage` schemas, **tests only** |
