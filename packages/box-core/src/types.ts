@@ -118,6 +118,33 @@ export interface Order {
 
 /** Company profile, invoice set-up and pricing defaults: the part of the settings shared by every device
  *  and the website (org_settings in Supabase). Device-only preferences live in the app's Settings. */
+/** A pack size of a standard product: `qty` boxes for `price` (before GST). */
+export interface ProductPack {
+  qty: number;
+  price: number;
+}
+
+/** A fixed-size box sold in packs on the website (Supabase `products`). */
+export interface Product {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  ply: Ply;
+  /** Inside size and board (paper layers; prices in it are not used). */
+  spec: BoxSpec;
+  packs: ProductPack[];
+  hsn: string;
+  taxPct: number;
+  /** Boxes in stock; null = made to order. */
+  stockQty: number | null;
+  photos: string[];
+  active: boolean;
+  sort: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface CompanySettings {
   businessName: string;
   businessPhone: string;

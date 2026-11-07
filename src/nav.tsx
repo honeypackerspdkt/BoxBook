@@ -19,6 +19,8 @@ export type Route =
   | { name: 'cloud' }
   | { name: 'team' }
   | { name: 'inbox' }
+  | { name: 'products' }
+  | { name: 'product'; id?: string }
   | { name: 'help' };
 
 interface Nav {

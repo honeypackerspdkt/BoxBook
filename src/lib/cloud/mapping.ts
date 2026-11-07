@@ -1,14 +1,14 @@
 import type { DeliveryZone, WebShop } from '@honeypackers/box-core/pricing';
 import { normalizeWebShop } from '@honeypackers/box-core/pricing';
-import type { AppData, Customer, Enquiry, Order, OrderItem, Payment, SavedBox, Settings } from '../types';
+import type { AppData, Customer, Enquiry, Order, OrderItem, Payment, Product, SavedBox, Settings } from '../types';
 
 /**
  * App records ↔ Supabase rows (supabase/migrations). Rows use the database column names and leave out
  * org_id / rev / updated_at / updated_by: the sync engine adds and reads those.
  */
-export type Table = 'customers' | 'boxes' | 'orders' | 'order_items' | 'payments' | 'delivery_zones' | 'enquiries';
+export type Table = 'customers' | 'boxes' | 'products' | 'orders' | 'order_items' | 'payments' | 'delivery_zones' | 'enquiries';
 /** Push order: parents before children (foreign keys). */
-export const TABLES: Table[] = ['customers', 'boxes', 'orders', 'order_items', 'payments', 'delivery_zones', 'enquiries'];
+export const TABLES: Table[] = ['customers', 'boxes', 'products', 'orders', 'order_items', 'payments', 'delivery_zones', 'enquiries'];
 
 export type Row = { id: string } & Record<string, unknown>;
 export interface Entry {
@@ -105,6 +105,23 @@ export const zoneRow = (z: DeliveryZone, sort: number): Row => ({
   sort: z.sort ?? sort,
 });
 
+export const productRow = (p: Product): Row => ({
+  id: p.id,
+  slug: p.slug,
+  name: p.name,
+  description: p.description || '',
+  ply: p.ply,
+  spec: p.spec,
+  packs: p.packs,
+  hsn: p.hsn || '48191010',
+  tax_pct: p.taxPct ?? 5,
+  stock_qty: p.stockQty ?? null,
+  photos: p.photos || [],
+  active: p.active,
+  sort: p.sort || 0,
+  created_at: p.createdAt || null,
+});
+
 /** Only the status is changed in the app; the rest comes from the website. */
 export const enquiryRow = (e: Enquiry): Row => ({ id: e.id, status: e.status });
 
@@ -121,6 +138,7 @@ export function rowsOf(d: AppData): Map<string, Entry> {
   }
   d.web.zones.forEach((z, i) => z.id && put('delivery_zones', zoneRow(z, i)));
   (d.enquiries || []).forEach((e) => put('enquiries', enquiryRow(e)));
+  (d.products || []).forEach((p) => put('products', productRow(p)));
   return out;
 }
 
@@ -226,6 +244,29 @@ export function applyRow(d: AppData, table: string, row: Row): AppData {
         }
       }
       return { ...d, orders: d.orders.map((o) => (o.id === orderId ? next : o)) };
+    }
+    case 'products': {
+      const list = d.products || [];
+      if (deleted) return { ...d, products: list.filter((p) => p.id !== id) };
+      const prev = list.find((p) => p.id === id);
+      const p: Product = {
+        id,
+        slug: str(row.slug),
+        name: str(row.name),
+        description: str(row.description),
+        ply: (num(row.ply) || 3) as Product['ply'],
+        spec: row.spec as Product['spec'],
+        packs: Array.isArray(row.packs) ? (row.packs as Product['packs']).map((k) => ({ qty: num(k.qty), price: num(k.price) })) : [],
+        hsn: str(row.hsn) || '48191010',
+        taxPct: num(row.tax_pct),
+        stockQty: row.stock_qty == null ? null : num(row.stock_qty),
+        photos: Array.isArray(row.photos) ? (row.photos as string[]) : [],
+        active: row.active !== false,
+        sort: num(row.sort),
+        createdAt: prev?.createdAt || iso(row.created_at),
+        updatedAt: iso(row.updated_at),
+      };
+      return { ...d, products: prev ? list.map((x) => (x.id === id ? p : x)) : [...list, p] };
     }
     case 'enquiries': {
       const list = d.enquiries || [];

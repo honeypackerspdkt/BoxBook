@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { advanceAmount, checkoutTotals, defaultWebShop, deliveryCharge, findZone, gradeLabel, normalizeWebShop, priceCustomBox, setupProblems, slabFor, slabTable, specForGrade, type DeliveryZone, type PriceRules } from './pricing';
+import { advanceAmount, checkoutTotals, defaultWebShop, deliveryCharge, findZone, gradeLabel, normalizeWebShop, priceCart, priceCustomBox, productSlug, setupProblems, slabFor, slabTable, specForGrade, type DeliveryZone, type PriceRules } from './pricing';
 
 const rules: PriceRules = {
   paper: [
@@ -165,5 +165,46 @@ describe('web price list set-up', () => {
   it('labels grades', () => {
     expect(gradeLabel(rules.grades[0])).toBe('3 ply · 120 GSM · 18 BF');
     expect(gradeLabel(rules.grades[1])).toBe('5 ply · mixed paper');
+  });
+});
+
+describe('standard products cart', () => {
+  const spec = specForGrade({ length: 300, width: 200, height: 150 }, rules.grades[0], rules.paper)!;
+  const product = (over: Partial<import('./types').Product> = {}): import('./types').Product => ({
+    id: 'p1', slug: '3-ply-300x200x150', name: '3 ply 300×200×150', description: '', ply: 3, spec,
+    packs: [{ qty: 25, price: 450 }, { qty: 100, price: 1600 }], hsn: '48191010', taxPct: 5, stockQty: null,
+    photos: [], active: true, sort: 0, createdAt: '', updatedAt: '', ...over,
+  });
+
+  it('prices packs, adds up weight for delivery', () => {
+    const c = priceCart([{ productId: 'p1', packQty: 100, count: 2 }, { productId: 'p1', packQty: 25, count: 1 }], [product()]);
+    expect(c.problems).toEqual([]);
+    expect(c.lines.map((l) => [l.boxes, l.amount])).toEqual([[200, 3200], [25, 450]]);
+    expect(c.goods).toBe(3650);
+    // 158.51 g per box (hand-worked earlier) × 225 boxes = 35.665 kg
+    expect(c.weightKg).toBe(35.665);
+  });
+
+  it('refuses switched-off products, removed packs, silly counts and more than the stock', () => {
+    const c = priceCart(
+      [
+        { productId: 'gone', packQty: 25, count: 1 },
+        { productId: 'p1', packQty: 50, count: 1 },
+        { productId: 'p1', packQty: 25, count: 0 },
+        { productId: 'p2', packQty: 25, count: 3 },
+      ],
+      [product(), product({ id: 'p2', name: 'Small', stockQty: 60 }), product({ id: 'off', active: false })],
+    );
+    expect(c.lines).toEqual([]);
+    expect(c.problems.map((p) => p.message)).toEqual([
+      'This box is no longer sold online.',
+      '3 ply 300×200×150: this pack size is no longer available.',
+      '3 ply 300×200×150: choose between 1 and 1000 packs.',
+      'Small: only 60 boxes in stock.',
+    ]);
+  });
+
+  it('makes slugs', () => {
+    expect(productSlug('3 Ply 300×200×150 mm!')).toBe('3-ply-300x200x150-mm');
   });
 });

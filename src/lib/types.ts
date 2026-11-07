@@ -1,5 +1,5 @@
 import type { WebShop } from '@honeypackers/box-core/pricing';
-import type { CompanySettings, Customer, Order, SavedBox } from '@honeypackers/box-core/types';
+import type { CompanySettings, Customer, Order, Product, SavedBox } from '@honeypackers/box-core/types';
 
 export type * from '@honeypackers/box-core/types';
 export type { WebShop } from '@honeypackers/box-core/pricing';
@@ -45,4 +45,6 @@ export interface AppData {
   web: WebShop;
   /** Website enquiries (cloud sync only; empty otherwise). */
   enquiries: Enquiry[];
+  /** Standard boxes sold in packs on the website (owner). */
+  products: Product[];
 }

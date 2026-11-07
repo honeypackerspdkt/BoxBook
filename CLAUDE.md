@@ -142,6 +142,10 @@ One codebase → Android + iOS via **Capacitor 7 + React 19 + Vite 7 + TypeScrip
   `arrivalText`, `markSeen`); `store.setUntracked` toasts arrivals after a sync. Enquiry actions: call, WhatsApp, make order
   (finds/creates the customer by mobile), contacted, close. Enquiries get into Supabase through the website's Netlify
   `submission-created` function.
+- Standard products: box-core `Product`/`ProductPack` types + `priceCart`/`productSlug` (pricing.ts, tested). App: `AppData.products`, synced
+  as Supabase `products` (public on the website; paper prices zeroed in `spec`). `screens/Products.tsx` (routes `products`, `product{id?}`;
+  More → Products, owner only): size + board grade from the web price list (BS/weight shown), packs with prices (suggestion from the
+  web price list), limited stock or made to order, show on website. Website: `/products/` + cart (honeypackers-web).
 - Not done yet: logo upload to storage, Realtime push (polling for now).
 
 ### Build commands

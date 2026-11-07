@@ -404,4 +404,29 @@ suite('website enquiries reach the app', () => {
     const after = await pool.query('select status, name from enquiries where id = $1', [rows[0].id]);
     expect(after.rows[0]).toEqual({ status: 'contacted', name: 'Selvi' }); // only the status changed
   });
+
+  it('a product made in the app reaches the website (public, without paper prices)', async () => {
+    const D = device(pgApi(pool, owner), orgId, 'Administrator', emptyData());
+    await D.sync();
+    const spec = { length: 300, width: 200, height: 150, ply: 3 as const, perLayer: false, layers: Array.from({ length: 9 }, () => ({ gsm: 120, bf: 18, price: 0 })) };
+    D.edit((d) => ({ ...d, products: [{ id: uid(), slug: '3-ply-300x200x150', name: '3 ply 300×200×150', description: '', ply: 3, spec, packs: [{ qty: 100, price: 1600 }], hsn: '48191010', taxPct: 5, stockQty: 500, photos: [], active: true, sort: 0, createdAt: later(), updatedAt: later() }] }));
+    await D.sync();
+    expect(D.engine.pending).toBe(0);
+    const c = await pool.connect();
+    try {
+      await c.query('begin');
+      await c.query('set local role anon');
+      const { rows } = await c.query('select name, packs, stock_qty, spec from products where org_id = $1', [orgId]);
+      await c.query('commit');
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ name: '3 ply 300×200×150', packs: [{ qty: 100, price: 1600 }], stock_qty: 500 });
+      expect(rows[0].spec.layers.every((l: { price: number }) => l.price === 0)).toBe(true);
+    } finally {
+      c.release();
+    }
+    // a second phone gets it too
+    const E = device(pgApi(pool, owner), orgId, 'Administrator', emptyData());
+    await E.sync();
+    expect(E.data.products.map((p) => [p.name, p.stockQty])).toEqual([['3 ply 300×200×150', 500]]);
+  });
 });

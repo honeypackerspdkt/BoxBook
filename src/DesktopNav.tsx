@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react';
-import { Boxes, Building2, Calculator, CircleHelp, ClipboardList, Cloud, DatabaseBackup, Globe, Home, Inbox as InboxIcon, UserCog, Users } from 'lucide-react';
+import { Boxes, Building2, Calculator, CircleHelp, ClipboardList, Cloud, DatabaseBackup, Globe, Home, Inbox as InboxIcon, Package, UserCog, Users } from 'lucide-react';
 import { usePerms, useStore } from './store';
 import { tabsFor, type Perms } from './lib/roles';
 import { useNav, type Route, type Tab } from './nav';
@@ -24,6 +24,7 @@ const LIBRARY: Item[] = [
   { key: 'company', label: 'Company profile', icon: Building2, go: open({ name: 'company' }), show: (p) => p.ownerSettings },
   { key: 'business', label: 'Pricing defaults', icon: Calculator, go: open({ name: 'business' }), show: (p) => p.ownerSettings },
   { key: 'webPrices', label: 'Web price list', icon: Globe, go: open({ name: 'webPrices' }), show: (p) => p.ownerSettings },
+  { key: 'products', label: 'Products', icon: Package, go: open({ name: 'products' }), show: (p) => p.ownerSettings },
   { key: 'cloud', label: 'Cloud sync', icon: Cloud, go: open({ name: 'cloud' }) },
   { key: 'team', label: 'Staff', icon: UserCog, go: open({ name: 'team' }), show: (p, on) => p.team && on },
   { key: 'backup', label: 'Backup & restore', icon: DatabaseBackup, go: open({ name: 'backup' }) },
@@ -42,6 +43,8 @@ function activeKey(tab: Tab, top: Route | undefined): string {
       return 'customers';
     case 'box':
       return top.id ? 'boxes' : 'calc';
+    case 'product':
+      return 'products';
     default:
       return top.name;
   }

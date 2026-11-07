@@ -1,5 +1,5 @@
 import { calcBox, emptyLayers } from './calc';
-import type { BoxResult, BoxSpec, Ply } from './types';
+import type { BoxResult, BoxSpec, Ply, Product, ProductPack } from './types';
 
 /**
  * Web price list for custom boxes (Supabase `price_rules.rules`) and the maths that turns a
@@ -302,3 +302,81 @@ export function gradeLabel(g: Pick<Grade, 'ply' | 'layers'>): string {
   const same = ls.every((l) => l.gsm === ls[0]?.gsm && l.bf === ls[0]?.bf);
   return same && ls[0] ? `${g.ply} ply · ${ls[0].gsm} GSM · ${ls[0].bf} BF` : `${g.ply} ply · mixed paper`;
 }
+
+/* ------------------------------------ standard products (cart) ------------------------------------ */
+
+export interface CartLine {
+  productId: string;
+  /** Pack size chosen (boxes per pack). */
+  packQty: number;
+  /** Number of packs. */
+  count: number;
+}
+
+export interface PricedCartLine {
+  product: Product;
+  pack: ProductPack;
+  count: number;
+  boxes: number;
+  /** pack price × count, before GST. */
+  amount: number;
+  /** Board weight of all boxes in this line (kg). */
+  weightKg: number;
+}
+
+export interface PricedCart {
+  lines: PricedCartLine[];
+  /** Lines that could not be priced (product gone / switched off, pack removed, not enough stock). */
+  problems: { productId: string; message: string }[];
+  goods: number;
+  weightKg: number;
+}
+
+/** kg rounded to whole grams. */
+const grams = (kg: number) => Math.round(kg * 1000) / 1000;
+
+/** Prices a cart from the product list (the server runs this again with the products from the database). */
+export function priceCart(cart: CartLine[], products: Product[]): PricedCart {
+  const lines: PricedCartLine[] = [];
+  const problems: PricedCart['problems'] = [];
+  for (const c of cart) {
+    const count = Math.floor(Number(c.count));
+    const product = products.find((p) => p.id === c.productId && p.active);
+    if (!product) {
+      problems.push({ productId: c.productId, message: 'This box is no longer sold online.' });
+      continue;
+    }
+    const pack = product.packs.find((p) => p.qty === Number(c.packQty) && p.price > 0);
+    if (!pack) {
+      problems.push({ productId: c.productId, message: `${product.name}: this pack size is no longer available.` });
+      continue;
+    }
+    if (!(count >= 1 && count <= 1000)) {
+      problems.push({ productId: c.productId, message: `${product.name}: choose between 1 and 1000 packs.` });
+      continue;
+    }
+    const boxes = pack.qty * count;
+    const already = lines.filter((l) => l.product.id === product.id).reduce((n, l) => n + l.boxes, 0);
+    if (product.stockQty != null && already + boxes > product.stockQty) {
+      problems.push({ productId: c.productId, message: `${product.name}: only ${product.stockQty} boxes in stock.` });
+      continue;
+    }
+    const perBoxKg = Math.round(calcBox(product.spec).weight * 100) / 100_000;
+    lines.push({ product, pack, count, boxes, amount: round2(pack.price * count), weightKg: grams(perBoxKg * boxes) });
+  }
+  return {
+    lines,
+    problems,
+    goods: round2(lines.reduce((n, l) => n + l.amount, 0)),
+    weightKg: grams(lines.reduce((n, l) => n + l.weightKg, 0)),
+  };
+}
+
+/** URL-friendly id for a product, e.g. "3 ply 300×200×150" → "3-ply-300x200x150". */
+export const productSlug = (name: string) =>
+  name
+    .toLowerCase()
+    .replace(/×/g, 'x')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60) || 'box';

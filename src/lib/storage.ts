@@ -33,6 +33,7 @@ export function emptyData(): AppData {
     settings: { ...defaultSettings },
     web: defaultWebShop(),
     enquiries: [],
+    products: [],
   };
 }
 
@@ -56,6 +57,7 @@ export function normalize(raw: unknown): AppData {
     },
     web: normalizeWebShop(d.web),
     enquiries: Array.isArray(d.enquiries) ? d.enquiries : [],
+    products: Array.isArray(d.products) ? d.products : [],
   };
 }
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Box, Building2, Calculator, CircleHelp, Cloud, DatabaseBackup, Globe, Inbox as InboxIcon, Plus, UserCog } from 'lucide-react';
+import { Box, Building2, Calculator, CircleHelp, Cloud, DatabaseBackup, Globe, Inbox as InboxIcon, Package, Plus, UserCog } from 'lucide-react';
 import { setupProblems } from '@honeypackers/box-core/pricing';
 import { usePerms, useStore } from '../store';
 import { useNav } from '../nav';
@@ -103,6 +103,18 @@ export function More() {
                 }
                 title="Web price list"
                 sub={webSummary(data.web)}
+              />
+            )}
+            {p.ownerSettings && (
+              <Row
+                onClick={() => nav.push({ name: 'products' })}
+                icon={
+                  <span className={iconCls}>
+                    <Package size={20} />
+                  </span>
+                }
+                title="Products"
+                sub={data.products.length ? `${data.products.filter((x) => x.active).length} on the website` : 'Standard boxes sold in packs online'}
               />
             )}
             <Row

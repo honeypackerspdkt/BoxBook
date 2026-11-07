@@ -4,7 +4,7 @@ import { emptyData, isNative, loadData, saveData } from './lib/storage';
 import { backupName, saveBackupOnDevice, toJson } from './lib/backup';
 import { driveSession, uploadDriveBackup } from './lib/drive';
 import { todayISO, uid } from './lib/format';
-import type { AppData, Customer, Enquiry, Order, SavedBox, Settings, WebShop } from './lib/types';
+import type { AppData, Customer, Enquiry, Order, Product, SavedBox, Settings, WebShop } from './lib/types';
 import { CloudController, type CloudStatus } from './lib/cloud/controller';
 import { withUuidIds } from './lib/cloud/migrate';
 import { arrivalText, arrivals, markSeen } from './lib/inbox';
@@ -24,6 +24,8 @@ interface Store {
   /** Inbox: website orders looked at on this phone. */
   markInboxSeen: (orderIds: string[]) => void;
   setEnquiryStatus: (id: string, status: Enquiry['status']) => void;
+  upsertProduct: (p: Omit<Product, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }) => Product;
+  deleteProduct: (id: string) => void;
   replaceAll: (d: AppData) => Promise<void>;
   backupNow: () => Promise<void>;
   toast: (msg: string) => void;
@@ -249,6 +251,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (next.length !== (d.settings.inboxSeen || []).length || next.some((x, i) => x !== d.settings.inboxSeen[i])) updateSettings({ inboxSeen: next });
   };
 
+  const upsertProduct: Store['upsertProduct'] = (p) => {
+    const existing = p.id ? dataRef.current.products.find((x) => x.id === p.id) : undefined;
+    const rec: Product = { ...p, id: existing?.id || uid(), createdAt: existing?.createdAt || now(), updatedAt: now() };
+    commit((d) => ({ ...d, products: existing ? d.products.map((x) => (x.id === rec.id ? rec : x)) : [...d.products, rec] }));
+    return rec;
+  };
+  const deleteProduct = (id: string) => commit((d) => ({ ...d, products: d.products.filter((x) => x.id !== id) }));
+
   const setEnquiryStatus = (id: string, status: Enquiry['status']) =>
     commit((d) => ({ ...d, enquiries: d.enquiries.map((e) => (e.id === id ? { ...e, status, updatedAt: now() } : e)) }));
 
@@ -279,7 +289,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   return (
     <Ctx.Provider
-      value={{ data, ready, upsertCustomer, deleteCustomer, upsertOrder, deleteOrder, upsertBox, deleteBox, updateSettings, updateWeb, markInboxSeen, setEnquiryStatus, replaceAll, backupNow, toast, toastMsg, cloud, cloudStatus }}
+      value={{ data, ready, upsertCustomer, deleteCustomer, upsertOrder, deleteOrder, upsertBox, deleteBox, updateSettings, updateWeb, markInboxSeen, setEnquiryStatus, upsertProduct, deleteProduct, replaceAll, backupNow, toast, toastMsg, cloud, cloudStatus }}
     >
       {children}
     </Ctx.Provider>
