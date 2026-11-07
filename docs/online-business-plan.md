@@ -1,6 +1,6 @@
 # Honey Packers online: technical plan
 
-Status: **draft for review** (7 Nov 2026). The database schema is written and tested (`supabase/`, `npm run db:test`). Nothing else is built yet.
+Status: **draft for review** (7 Nov 2026). Done so far: database schema (`supabase/`, `npm run db:test`) and the shared package `packages/box-core` with web pricing (`pricing.ts`).
 It covers the website and online shop at **honeypackers.in**, and cloud sync for the BoxBook app.
 
 ## 0. Decisions taken
@@ -46,7 +46,7 @@ Requirements 5 (file backup and restore) and 6 (daily backup on the phone) **sti
 
 **Shared code: `@honeypackers/box-core`**
 - Contents: `calc.ts`, `box3d.ts`, `gst.ts`, `words.ts`, `invoice.ts`, the types, and a new `pricing.ts` (section 4).
-- Location: `packages/box-core` in this repo, published to **GitHub Packages**. The app, the website and the Netlify functions all import the same version.
+- Location: `packages/box-core` in this repo (**done**, npm workspace). The website repo links it with `file:../BoxBook/packages/box-core`, the same way the rajesh-hub packages are linked; publishing to GitHub Packages can come later if needed.
 - Why: the price a buyer sees, the price the server charges and the price staff quote are then always the same.
 
 **Reused from rajesh-hub instead of rebuilt** (CATALOGUE codes):

@@ -3,7 +3,7 @@ import { Bookmark, Layers, PackagePlus, RotateCcw, Share2 } from 'lucide-react';
 import { useStore } from '../store';
 import { useNav } from '../nav';
 import { Box3D } from '../Box3D';
-import { calcBox, emptyLayers, estimate, isFlute, layerName, specLabel } from '../lib/calc';
+import { calcBox, emptyLayers, estimate, isFlute, layerName, specLabel } from '@honeypackers/box-core/calc';
 import { money, num } from '../lib/format';
 import { boxSpecText, shareText } from '../lib/share';
 import type { BoxSpec, PaperLayer, Ply, Pricing } from '../lib/types';

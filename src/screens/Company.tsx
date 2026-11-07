@@ -2,7 +2,7 @@ import { useRef, useState, type ChangeEvent } from 'react';
 import { ImagePlus, Trash2 } from 'lucide-react';
 import { useStore } from '../store';
 import { useNav } from '../nav';
-import { GST_STATES, stateFromGstin } from '../lib/gst';
+import { GST_STATES, stateFromGstin } from '@honeypackers/box-core/gst';
 import type { Settings } from '../lib/types';
 import { Field, Header, NumInput, Page, Section } from '../ui';
 

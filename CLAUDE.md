@@ -19,6 +19,18 @@ One codebase → Android + iOS via **Capacitor 7 + React 19 + Vite 7 + TypeScrip
 
 ## Status
 
+### Shared package `packages/box-core` (`@honeypackers/box-core`, npm workspace)
+- `calc`, `box3d`, `gst`, `words`, `invoice` (+ their tests and the Roboto fonts) moved here from `src/lib` / `src/assets` so the app,
+  the honeypackers.in website and its server functions use the same code. **Below, `lib/calc.ts`, `lib/box3d.ts`, `lib/gst.ts`,
+  `lib/words.ts`, `lib/invoice.ts` mean `packages/box-core/src/…`.** The app imports e.g. `@honeypackers/box-core/calc`.
+- `types.ts` there holds the data model + `CompanySettings` (shared company/invoice/pricing fields); the app's `src/lib/types.ts`
+  re-exports it and adds device-only `Settings` fields and `AppData`. `company.ts` has `defaultCompany` (GST default 5%).
+- `pricing.ts` — web price list (`PriceRules`, stored in Supabase `price_rules.rules`): `priceCustomBox` (paper from `calcBox` +
+  conversion ₹/kg by ply + printing + quantity-slab margin, size/qty limits), `slabTable`, `findZone`/`deliveryCharge` (pincode zones),
+  `checkoutTotals` (GST on goods + delivery), `advanceAmount`. Tested in `pricing.test.ts` with hand-worked numbers.
+- Source is consumed as TypeScript (no build step). Typecheck: `npx tsc -p packages/box-core`. Tests run with the app's `npx vitest run`.
+
+
 ### Done (in `src/`)
 - `lib/types.ts` — data model: Customer, Order (items, payments, status, discount, GST), SavedBox, Settings, AppData.
 - `lib/calc.ts` — box maths ported from eBox + `estimate()` + `orderTotals()`.

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Box, Building2, Calculator, CircleHelp, DatabaseBackup, Plus } from 'lucide-react';
 import { useStore } from '../store';
 import { useNav } from '../nav';
-import { specLabel } from '../lib/calc';
+import { specLabel } from '@honeypackers/box-core/calc';
 import { timeAgo } from '../lib/format';
 import type { Settings } from '../lib/types';
 import { Empty, Field, Header, List, NumInput, Page, Row, Section, Segmented, Fab } from '../ui';

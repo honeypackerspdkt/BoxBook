@@ -19,6 +19,7 @@
     "@capacitor/filesystem": "^7.1.9",
     "@capacitor/share": "^7.0.4",
     "@capacitor/status-bar": "^7.0.6",
+    "@honeypackers/box-core": "*",
     "@rajesh-hub/print": "file:../rajesh-hub/packages/print",
     "@rajesh-hub/tokens": "file:../rajesh-hub/packages/tokens",
     "@rajesh-hub/ui": "file:../rajesh-hub/packages/ui",
@@ -48,5 +49,8 @@
     "typescript-eslint": "^8.18.1",
     "vite": "^7.3.7",
     "vitest": "^5.0.5"
-  }
+  },
+  "workspaces": [
+    "packages/*"
+  ]
 }

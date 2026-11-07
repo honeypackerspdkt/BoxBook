@@ -1,0 +1,23 @@
+{
+  "name": "@honeypackers/box-core",
+  "version": "0.1.0",
+  "description": "Corrugated box maths, web pricing, GST and tax-invoice PDF shared by the BoxBook app, honeypackers.in and its server functions.",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./calc": "./src/calc.ts",
+    "./pricing": "./src/pricing.ts",
+    "./box3d": "./src/box3d.ts",
+    "./gst": "./src/gst.ts",
+    "./words": "./src/words.ts",
+    "./company": "./src/company.ts",
+    "./types": "./src/types.ts",
+    "./invoice": "./src/invoice.ts"
+  },
+  "files": ["src", "assets"],
+  "dependencies": {
+    "jspdf": "^4.2.1"
+  }
+}

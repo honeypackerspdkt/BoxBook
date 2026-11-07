@@ -2,16 +2,16 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { buildInvoiceModel, bytesToBase64, createInvoicePdf, formatInvoiceNo, invoiceDate } from './invoice';
-import { defaultSettings } from './storage';
-import type { Customer, Order, Settings } from './types';
+import { defaultCompany } from './company';
+import type { CompanySettings, Customer, Order } from './types';
 
 const font = (n: string) => bytesToBase64(new Uint8Array(readFileSync(new URL(`../assets/fonts/Roboto-${n}.subset.ttf`, import.meta.url))));
 const fonts = { regular: font('Regular'), bold: font('Bold') };
-const logo = `data:image/png;base64,${readFileSync(new URL('../../public/icon-192.png', import.meta.url)).toString('base64')}`;
+const logo = `data:image/png;base64,${readFileSync(new URL('../test-fixtures/logo.png', import.meta.url)).toString('base64')}`;
 
 // The sample invoice 330 (Honey Packers -> Maruthi Coir Industries)
-const settings: Settings = {
-  ...defaultSettings,
+const settings: CompanySettings = {
+  ...defaultCompany,
   businessName: 'HONEY PACKERS',
   businessAddress: '845, Valayampatty,Thirumayam (TK)\nPudukkottai - 622506',
   businessTagline: 'An ISO 9001 : 2015 Certified Company',

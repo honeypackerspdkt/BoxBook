@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Box, Check, ClipboardList, Copy, FileText, MessageCircle, Pencil, Phone, Plus, Share2, Trash2, UserPlus, Wallet, X } from 'lucide-react';
 import { useStore } from '../store';
 import { useNav } from '../nav';
-import { calcBox, estimate, isOpen, orderTotals, specLabel } from '../lib/calc';
+import { calcBox, estimate, isOpen, orderTotals, specLabel } from '@honeypackers/box-core/calc';
 import { fmtDate, money, money0, num, relDays, telHref, todayISO, uid, waHref } from '../lib/format';
 import { orderText, shareText } from '../lib/share';
 import { shareFile } from '../lib/sharefile';
@@ -172,7 +172,7 @@ export function OrderDetail({ id }: { id: string }) {
     }
     setInvBusy(true);
     try {
-      const { buildInvoiceModel, formatInvoiceNo, renderInvoicePdf } = await import('../lib/invoice');
+      const { buildInvoiceModel, formatInvoiceNo, renderInvoicePdf } = await import('@honeypackers/box-core/invoice');
       let no = o.invoiceNo;
       if (!no) {
         no = formatInvoiceNo(s);

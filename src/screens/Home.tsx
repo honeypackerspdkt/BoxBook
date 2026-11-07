@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { AlertTriangle, Calculator, CheckCircle2, ClipboardList, ShieldCheck, UserPlus } from 'lucide-react';
 import { useStore } from '../store';
 import { useNav } from '../nav';
-import { isOpen, orderTotals } from '../lib/calc';
+import { isOpen, orderTotals } from '@honeypackers/box-core/calc';
 import { addDays, fmtDate, money0, relDays, timeAgo, todayISO } from '../lib/format';
 import { Empty, Header, List, Page, Row, Section, Stat, StatusChip } from '../ui';
 

@@ -1,5 +1,6 @@
 import { Capacitor } from '@capacitor/core';
 import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
+import { defaultCompany } from '@honeypackers/box-core/company';
 import type { AppData, Settings } from './types';
 
 export const isNative = Capacitor.isNativePlatform();
@@ -7,26 +8,7 @@ const DATA_FILE = 'boxbook-data.json';
 const WEB_KEY = 'boxbook-data';
 
 export const defaultSettings: Settings = {
-  businessName: '',
-  businessPhone: '',
-  businessAddress: '',
-  businessGstin: '',
-  businessEmail: '',
-  businessTagline: '',
-  businessState: '33',
-  businessLogo: '',
-  bankHolder: '',
-  bankName: '',
-  bankAccount: '',
-  bankBranch: '',
-  bankIfsc: '',
-  invoiceDeclaration: 'We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.',
-  invoicePrefix: '',
-  nextInvoiceNo: 1,
-  defaultHsn: '48191010',
-  defaultUnit: 'Nos.',
-  currency: '₹',
-  defaults: { overhead: 0, profitPct: 25, taxPct: 5 },
+  ...defaultCompany,
   theme: 'system',
   nextOrderNo: 1,
   autoBackup: true,

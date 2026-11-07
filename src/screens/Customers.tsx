@@ -2,9 +2,9 @@ import { useMemo, useState } from 'react';
 import { Box, MessageCircle, Pencil, Phone, Plus, Trash2, UserPlus, Users } from 'lucide-react';
 import { useStore } from '../store';
 import { useNav } from '../nav';
-import { orderTotals, specLabel } from '../lib/calc';
+import { orderTotals, specLabel } from '@honeypackers/box-core/calc';
 import { fmtDate, initials, money, money0, telHref, waHref } from '../lib/format';
-import { GST_STATES, stateFromGstin } from '../lib/gst';
+import { GST_STATES, stateFromGstin } from '@honeypackers/box-core/gst';
 import type { Customer } from '../lib/types';
 import { Avatar, Confirm, Empty, Fab, Field, Header, IconBtn, List, Page, Row, SearchBox, Section, StatusChip } from '../ui';
 

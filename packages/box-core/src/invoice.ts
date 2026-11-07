@@ -1,5 +1,5 @@
 import { jsPDF } from 'jspdf';
-import type { Customer, InvoiceMeta, Order, Settings } from './types';
+import type { CompanySettings, Customer, InvoiceMeta, Order } from './types';
 import { splitTax, stateFromGstin, stateName } from './gst';
 import { rupeesInWords } from './words';
 
@@ -44,9 +44,9 @@ const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 const lines = (s: string) => (s || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
 
 /** Next invoice number as text, e.g. prefix "HP/" + 330 -> "HP/330". */
-export const formatInvoiceNo = (s: Pick<Settings, 'invoicePrefix' | 'nextInvoiceNo'>, n = s.nextInvoiceNo) => `${s.invoicePrefix || ''}${n}`;
+export const formatInvoiceNo = (s: Pick<CompanySettings, 'invoicePrefix' | 'nextInvoiceNo'>, n = s.nextInvoiceNo) => `${s.invoicePrefix || ''}${n}`;
 
-export function buildInvoiceModel(order: Order, customer: Customer | undefined, s: Settings, invoiceNo: string): InvoiceModel {
+export function buildInvoiceModel(order: Order, customer: Customer | undefined, s: CompanySettings, invoiceNo: string): InvoiceModel {
   const sellerState = s.businessState || stateFromGstin(s.businessGstin);
   const buyerState = customer?.stateCode || stateFromGstin(customer?.gstin || '') || sellerState;
   const inter = !!sellerState && !!buyerState && sellerState !== buyerState;

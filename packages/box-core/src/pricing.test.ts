@@ -1,0 +1,136 @@
+import { describe, expect, it } from 'vitest';
+import { advanceAmount, checkoutTotals, deliveryCharge, findZone, priceCustomBox, slabFor, slabTable, specForGrade, type DeliveryZone, type PriceRules } from './pricing';
+
+const rules: PriceRules = {
+  paper: [
+    { gsm: 120, bf: 18, pricePerKg: 42 },
+    { gsm: 150, bf: 20, pricePerKg: 46 },
+  ],
+  conversionPerKg: { 3: 12, 5: 14 },
+  printing: { perColourPerBox: 0.6, plateCharge: 1500, maxColours: 4 },
+  slabs: [
+    { minQty: 100, marginPct: 30 },
+    { minQty: 500, marginPct: 22 },
+    { minQty: 2000, marginPct: 15 },
+  ],
+  limits: { minQty: 100, maxQty: 50000, maxDeckle: 1800, maxCut: 1600 },
+  grades: [
+    { id: '3-120-18', label: '3 ply · 120 GSM · 18 BF', ply: 3, layers: [{ gsm: 120, bf: 18 }] },
+    {
+      id: '5-mixed',
+      label: '5 ply · 150/120',
+      ply: 5,
+      layers: [
+        { gsm: 150, bf: 20 },
+        { gsm: 120, bf: 18 },
+        { gsm: 120, bf: 18 },
+        { gsm: 120, bf: 18 },
+        { gsm: 150, bf: 20 },
+      ],
+    },
+    { id: 'no-rate', label: 'missing', ply: 3, layers: [{ gsm: 180, bf: 22 }] },
+  ],
+};
+
+const box = { length: 300, width: 200, height: 150 };
+
+describe('priceCustomBox', () => {
+  it('prices a plain 3 ply box (worked by hand)', () => {
+    // cut 2·300+2·200+50 = 1050, deckle 200+150+20 = 370, area 388 500 mm²
+    // board 46.62 + 65.268 (flute ×1.4) + 46.62 = 158.508 g → paper 0.158508 kg × ₹42 = ₹6.66
+    // conversion 0.15851 kg × ₹12 = ₹1.90212; base ₹8.56212; slab 100+ = 30% → ₹11.13
+    const p = priceCustomBox({ ...box, gradeId: '3-120-18', qty: 100 }, rules);
+    expect(p.ok).toBe(true);
+    if (!p.ok) return;
+    expect(p.box).toMatchObject({ cutSize: 1050, deckleSize: 370, sheets: 1, weight: 158.51, paperCost: 6.66 });
+    expect(p.weightKg).toBe(0.15851);
+    expect(p.conversion).toBe(1.9);
+    expect(p.printing).toBe(0);
+    expect(p.marginPct).toBe(30);
+    expect(p.unitPrice).toBe(11.13);
+    expect(p.amount).toBe(1113);
+  });
+
+  it('adds printing (per colour + plate spread over qty) and uses the quantity slab', () => {
+    // printing 0.6 + 1500/500 = 3.6; base 6.66 + 1.90212 + 3.6 = 12.16212; ×1.22 = 14.84
+    const p = priceCustomBox({ ...box, gradeId: '3-120-18', qty: 500, colours: 1 }, rules);
+    expect(p.ok && [p.printing, p.marginPct, p.unitPrice, p.amount]).toEqual([3.6, 22, 14.84, 7420]);
+  });
+
+  it('uses per-layer paper for mixed grades', () => {
+    const spec = specForGrade(box, rules.grades[1], rules.paper)!;
+    expect(spec.perLayer).toBe(true);
+    expect(spec.layers.slice(0, 5).map((l) => l.price)).toEqual([46, 42, 42, 42, 46]);
+    expect(spec.layers).toHaveLength(9);
+    const p = priceCustomBox({ ...box, gradeId: '5-mixed', qty: 1000 }, rules);
+    expect(p.ok && p.box.deckleSize).toBe(200 + 150 + 20);
+  });
+
+  it('says why it cannot price', () => {
+    const why = (over: Partial<Parameters<typeof priceCustomBox>[0]>) => {
+      const p = priceCustomBox({ ...box, gradeId: '3-120-18', qty: 500, ...over }, rules);
+      return p.ok ? 'ok' : p.problem;
+    };
+    expect(why({ length: 20 })).toBe('bad-size');
+    expect(why({ width: NaN })).toBe('bad-size');
+    expect(why({ gradeId: 'nope' })).toBe('unknown-grade');
+    expect(why({ gradeId: 'no-rate' })).toBe('no-paper-rate');
+    expect(why({ qty: 50 })).toBe('qty-too-low');
+    expect(why({ qty: 60000 })).toBe('qty-too-high');
+    expect(why({ colours: 5 })).toBe('too-many-colours');
+    expect(why({ height: 1500 })).toBe('ok'); // deckle 200+1500+20 = 1720 ≤ 1800
+    expect(why({ height: 1600 })).toBe('too-big'); // deckle 1820 > 1800
+    expect(why({ length: 900, width: 400 })).toBe('ok'); // cut 2650 ≥ 1600 → 2 sheets of 1350
+    expect(why({ length: 1300, width: 400 })).toBe('too-big'); // 2 sheets of 1750 > maxCut 1600
+  });
+
+  it('price falls as quantity rises', () => {
+    const t = slabTable({ ...box, gradeId: '3-120-18', colours: 1 }, rules);
+    expect(t.map((r) => r.minQty)).toEqual([100, 500, 2000]);
+    expect(t[0].unitPrice).toBeGreaterThan(t[1].unitPrice);
+    expect(t[1].unitPrice).toBeGreaterThan(t[2].unitPrice);
+  });
+
+  it('picks the highest slab the quantity reaches', () => {
+    expect(slabFor(99, rules.slabs)).toBeUndefined();
+    expect(slabFor(499, rules.slabs)?.marginPct).toBe(30);
+    expect(slabFor(2000, rules.slabs)?.marginPct).toBe(15);
+  });
+});
+
+describe('delivery', () => {
+  const zones: DeliveryZone[] = [
+    { name: 'Tamil Nadu', pincodeFrom: 600000, pincodeTo: 643999, mode: 'courier', ratePerKg: 0, minCharge: 0, days: 4 },
+    { name: 'Pudukkottai', pincodeFrom: 622001, pincodeTo: 622999, mode: 'own', ratePerKg: 4, minCharge: 300, freeAbove: 25000, days: 1 },
+    { name: 'Old zone', pincodeFrom: 622001, pincodeTo: 622010, mode: 'own', ratePerKg: 1, minCharge: 1, days: 1, active: false },
+    { name: 'Factory', pincodeFrom: 622002, pincodeTo: 622002, mode: 'pickup', ratePerKg: 0, minCharge: 0, days: 0 },
+  ];
+
+  it('finds the narrowest active zone', () => {
+    expect(findZone(zones, '622 001')?.name).toBe('Pudukkottai');
+    expect(findZone(zones, 622002)?.name).toBe('Factory');
+    expect(findZone(zones, '600040')?.name).toBe('Tamil Nadu');
+    expect(findZone(zones, '110001')).toBeUndefined();
+    expect(findZone(zones, '6220')).toBeUndefined();
+  });
+
+  it('charges by weight with a minimum, free above a value, courier priced elsewhere', () => {
+    const own = zones[1];
+    expect(deliveryCharge(own, 50, 10000)).toBe(300); // 50 kg × ₹4 = 200 → minimum 300
+    expect(deliveryCharge(own, 158.51, 10000)).toBe(634.04);
+    expect(deliveryCharge(own, 500, 25000)).toBe(0);
+    expect(deliveryCharge(zones[0], 10, 1000)).toBeNull();
+    expect(deliveryCharge(zones[3], 10, 1000)).toBe(0);
+  });
+});
+
+describe('checkout', () => {
+  it('taxes goods and delivery at the goods rate', () => {
+    expect(checkoutTotals(7420, 300, 5)).toEqual({ goods: 7420, delivery: 300, taxable: 7720, tax: 386, total: 8106 });
+  });
+  it('advance amount, clamped', () => {
+    expect(advanceAmount(8106, 100)).toBe(8106);
+    expect(advanceAmount(8106, 50)).toBe(4053);
+    expect(advanceAmount(8106, 150)).toBe(8106);
+  });
+});

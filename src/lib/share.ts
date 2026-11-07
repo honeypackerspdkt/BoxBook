@@ -1,6 +1,6 @@
 import { Share } from '@capacitor/share';
 import { isNative } from './storage';
-import { calcBox, effectiveLayers, layerName, orderTotals, specLabel } from './calc';
+import { calcBox, effectiveLayers, layerName, orderTotals, specLabel } from '@honeypackers/box-core/calc';
 import { fmtDate, money, num } from './format';
 import type { BoxSpec, Customer, Order, Settings } from './types';
 

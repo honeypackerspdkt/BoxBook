@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { Pause, Play, RotateCcw } from 'lucide-react';
-import { AXIS_NAMES, clampPitch, defaultView, dimensionLines, project, type View } from './lib/box3d';
+import { AXIS_NAMES, clampPitch, defaultView, dimensionLines, project, type View } from '@honeypackers/box-core/box3d';
 import { num } from './lib/format';
 
 const W = 360;
