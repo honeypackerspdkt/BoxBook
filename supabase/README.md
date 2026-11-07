@@ -8,6 +8,7 @@ Plan: [`docs/online-business-plan.md`](../docs/online-business-plan.md). One Sup
 | `migrations/…01_core.sql` | `organizations`, `user_profiles` (staff + role), `org_settings` (company profile), `counters`, `customers`, `boxes`, `orders`, `order_items`, `payments`, `audit_logs`, row versioning trigger, RLS |
 | `migrations/…02_shop.sql` | `products`, `price_rules` (web price list, 100% advance by default), `delivery_zones`, `quotes`, `enquiries`, views `orders_production`, `order_items_production`, `public_business` |
 | `migrations/…03_functions.sql` | `create_organization`, `next_number`, `set_counter`, `assign_order_no`, `assign_invoice_no`, `set_order_status`, `buyer_link`, `sync_push`, `sync_pull` |
+| `migrations/…05_staff.sql` | `invitations`, `my_invitation()`, `accept_invitation()`: the owner invites an e-mail + role, that person signs in with the same e-mail and joins; a business always keeps one active owner |
 | `migrations/…04_storage.sql` | buckets `public-media` (logo, product photos) and `private` (invoices, artwork) + policies |
 | `tests/schema.test.sql` | RLS and sync tests for every role (owner, sales, production, dispatch, other business, buyers, anonymous) |
 | `tests/supabase_stub.sql` | stand-in for Supabase's `auth` / `storage` schemas, **tests only** |
@@ -42,8 +43,8 @@ npm run db:test        # throw-away Postgres 15+; needs initdb/pg_ctl/psql (apt 
 4. Project settings → API: copy the URL and anon key into the app's `.env.local` (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`), then build.
    The app then shows More → Cloud sync → sign in → "Create and move my data".
    The service role key goes **only** into Netlify environment variables, never into the app.
-5. Hub edge functions (`rajesh-hub/packages/supabase-kit/functions`): set their `VALID_ROLES` to
-   `["Administrator","Sales","Accounts","Production","Dispatch"]` before deploying invite-user / create-user.
+5. Staff are invited from the app (More → Staff), which needs no edge function. The hub's invite-user / create-user functions are
+   optional; if used, set their `VALID_ROLES` to `["Administrator","Sales","Accounts","Production","Dispatch"]`.
 
 ## Notes
 - `price_rules.rules` is readable by everyone because website prices are public (owner's choice). It contains paper ₹/kg

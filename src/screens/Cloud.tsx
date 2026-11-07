@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, CloudOff, Cloud as CloudIcon, LogOut, Refr
 import { useStore } from '../store';
 import { timeAgo } from '../lib/format';
 import { Confirm, Field, Header, Page, Section } from '../ui';
+import { ROLE_INFO, type Role } from '../lib/roles';
 
 const errText = (e: unknown) => String((e as Error)?.message || e);
 
@@ -28,7 +29,13 @@ export function CloudSync() {
       <Page>
         {st.phase === 'off' && <NotSetUp />}
         {st.phase === 'signed-out' && <SignIn run={run} busy={busy} />}
-        {st.phase === 'no-business' && <CreateBusiness run={run} busy={busy} defaultName={data.settings.businessName} counts={counts(data)} />}
+        {st.phase === 'no-business' && st.lastError && (
+          <button className="btn-ghost mb-4 w-full" disabled={busy} onClick={() => run(() => cloud.retry())}>
+            <RefreshCw size={18} /> Try again
+          </button>
+        )}
+        {st.phase === 'no-business' && st.invitation && <Invitation run={run} busy={busy} orgName={st.invitation.orgName} role={st.invitation.role} />}
+        {st.phase === 'no-business' && !st.invitation && <CreateBusiness run={run} busy={busy} defaultName={data.settings.businessName} counts={counts(data)} />}
         {st.phase === 'join' && <Join run={run} busy={busy} counts={counts(data)} />}
         {st.phase === 'ready' && <Status run={run} busy={busy} />}
         {st.phase !== 'off' && st.phase !== 'signed-out' && (
@@ -119,6 +126,26 @@ function CreateBusiness({ run, busy, defaultName, counts }: { run: Run; busy: bo
           <CloudIcon size={18} /> Create and move my data
         </button>
         <p className="text-[12.5px] text-muted-foreground">Staff don't create a business: you invite them, and they sign in with their own e-mail.</p>
+      </div>
+    </Section>
+  );
+}
+
+function Invitation({ run, busy, orgName, role }: { run: Run; busy: boolean; orgName: string; role: string }) {
+  const { cloud } = useStore();
+  const [you, setYou] = useState('');
+  return (
+    <Section title="You're invited">
+      <div className="card space-y-4 p-4">
+        <p className="text-[14px]">
+          <b>{orgName}</b> invited you as <b>{ROLE_INFO[role as Role]?.label || role}</b>: {ROLE_INFO[role as Role]?.text.toLowerCase()}.
+        </p>
+        <Field label="Your name">
+          <input className="input" value={you} autoComplete="name" onChange={(e) => setYou(e.target.value)} />
+        </Field>
+        <button className="btn-primary w-full" disabled={busy} onClick={() => run(() => cloud.acceptInvitation(you.trim()))}>
+          <Users size={18} /> Join {orgName}
+        </button>
       </div>
     </Section>
   );

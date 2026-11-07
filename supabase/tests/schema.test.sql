@@ -309,4 +309,69 @@ do $$ begin
 end $$;
 reset role;
 
+-- ───── staff invitations ─────
+insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-0000000000d1', 'New.Packer@Example.in'),
+  ('00000000-0000-0000-0000-0000000000d2', 'stranger@example.in');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000a1', false);
+set role authenticated;
+select set_config('test.org1', :'org1', false);
+do $$ begin
+  insert into invitations (org_id, email, role, name) values (current_setting('test.org1')::uuid, 'new.packer@example.in', 'Production', 'Muthu');
+  begin
+    insert into invitations (org_id, email, role) values (current_setting('test.org1')::uuid, 'new.packer@example.in', 'Sales');
+    raise exception 'duplicate open invite should fail';
+  exception when unique_violation then null; end;
+  begin
+    insert into invitations (org_id, email, role) values (current_setting('test.org1')::uuid, 'Upper@Case.in', 'Sales');
+    raise exception 'e-mail must be stored lower case';
+  exception when check_violation then null; end;
+  -- the owner cannot demote themselves while they are the only owner
+  begin
+    update user_profiles set role = 'Sales' where id = auth.uid();
+    raise exception 'last admin demoted';
+  exception when others then assert sqlerrm like 'A business needs at least one active owner%', sqlerrm; end;
+  update user_profiles set role = 'Accounts' where id = '00000000-0000-0000-0000-0000000000a2';
+  assert (select role from user_profiles where id = '00000000-0000-0000-0000-0000000000a2') = 'Accounts', 'owner changes a role';
+  update user_profiles set role = 'Sales' where id = '00000000-0000-0000-0000-0000000000a2';
+end $$;
+reset role;
+
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000a2', false);
+set role authenticated;
+do $$ begin
+  assert (select count(*) from invitations) = 0, 'sales cannot see invitations';
+  begin
+    insert into invitations (org_id, email, role) values (public.my_org(), 'x@y.in', 'Administrator');
+    raise exception 'sales cannot invite';
+  exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000d2', false);
+set role authenticated;
+do $$ begin
+  assert (select count(*) from public.my_invitation()) = 0, 'stranger has no invitation';
+  begin
+    perform public.accept_invitation();
+    raise exception 'stranger joined';
+  exception when others then assert sqlerrm like 'no invitation%', sqlerrm; end;
+end $$;
+reset role;
+
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000d1', false);
+set role authenticated;
+select set_config('test.org1', :'org1', false);
+do $$ begin
+  assert (select org_name || '/' || role from public.my_invitation()) = 'Honey Packers/Production', 'sees own invitation (e-mail case ignored)';
+  assert public.accept_invitation() = current_setting('test.org1')::uuid;
+  assert public.my_role() = 'Production' and (select display_name from user_profiles where id = auth.uid()) = 'Muthu';
+  assert (select count(*) from public.my_invitation()) = 0, 'invitation used up';
+  begin
+    perform public.accept_invitation();
+    raise exception 'accepted twice';
+  exception when others then assert sqlerrm like 'this account already%', sqlerrm; end;
+end $$;
+reset role;
+
 select 'all schema tests passed' as result;

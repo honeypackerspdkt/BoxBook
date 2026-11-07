@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Bookmark, Layers, PackagePlus, RotateCcw, Share2 } from 'lucide-react';
-import { useStore } from '../store';
+import { usePerms, useStore } from '../store';
 import { useNav } from '../nav';
 import { Box3D } from '../Box3D';
 import { calcBox, emptyLayers, estimate, isFlute, layerName, specLabel } from '@honeypackers/box-core/calc';
@@ -34,6 +34,8 @@ function saveDraft(spec: BoxSpec, qty: number) {
 
 export function Calculator({ boxId, customerId: initialCustomer }: { boxId?: string; customerId?: string }) {
   const { data, upsertBox, toast } = useStore();
+  const pm = usePerms();
+  const cols = pm.money ? 'grid-cols-[1fr_1fr_1.2fr]' : 'grid-cols-2';
   const nav = useNav();
   const cur = data.settings.currency;
   const saved = boxId ? data.boxes.find((b) => b.id === boxId) : undefined;
@@ -149,10 +151,10 @@ export function Calculator({ boxId, customerId: initialCustomer }: { boxId?: str
               label="Different paper per layer"
               desc={spec.perLayer ? 'Set GSM, BF and price for each layer' : 'Same paper used for every layer'}
             />
-            <div className="mt-3 grid grid-cols-[1fr_1fr_1.2fr] gap-2 px-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <div className={`mt-3 grid ${cols} gap-2 px-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground`}>
               <span>GSM</span>
               <span>BF</span>
-              <span>Price / kg</span>
+              {pm.money && <span>Price / kg</span>}
             </div>
             <div className="mt-1 space-y-3">
               {(spec.perLayer ? plyLayers : [0]).map((i) => (
@@ -164,10 +166,10 @@ export function Calculator({ boxId, customerId: initialCustomer }: { boxId?: str
                       {isFlute(i) && <span className="text-[11px] font-medium text-muted-foreground">×1.4 take-up</span>}
                     </div>
                   )}
-                  <div className="grid grid-cols-[1fr_1fr_1.2fr] gap-2">
+                  <div className={`grid ${cols} gap-2`}>
                     <NumInput aria-label={`${layerName(i, spec.ply)} GSM`} value={spec.layers[i].gsm} onValue={(v) => setLayer(i, { gsm: v })} />
                     <NumInput aria-label={`${layerName(i, spec.ply)} BF`} value={spec.layers[i].bf} onValue={(v) => setLayer(i, { bf: v })} />
-                    <NumInput aria-label={`${layerName(i, spec.ply)} price`} value={spec.layers[i].price} onValue={(v) => setLayer(i, { price: v })} suffix={cur} />
+                    {pm.money && <NumInput aria-label={`${layerName(i, spec.ply)} price`} value={spec.layers[i].price} onValue={(v) => setLayer(i, { price: v })} suffix={cur} />}
                   </div>
                 </div>
               ))}
@@ -179,10 +181,10 @@ export function Calculator({ boxId, customerId: initialCustomer }: { boxId?: str
         <div>
         <Section title="Result">
           <div className={`card overflow-hidden ${valid ? '' : 'opacity-60'}`}>
-            <div className="grid grid-cols-3 divide-x divide-border/60 bg-primary/10">
+            <div className={`grid ${pm.money ? 'grid-cols-3' : 'grid-cols-2'} divide-x divide-border/60 bg-primary/10`}>
               <Big label="Box weight" value={`${num(r.weight)}`} unit="g" />
               <Big label="Strength (BS)" value={num(r.bs)} unit="kg/cm²" />
-              <Big label="Paper cost" value={money(r.paperCost, cur)} unit="per box" />
+              {pm.money && <Big label="Paper cost" value={money(r.paperCost, cur)} unit="per box" />}
             </div>
             <div className="grid grid-cols-3 divide-x divide-border/60 border-t border-border/60">
               <Small label="Cut size" value={`${r.cutSize} mm`} />
@@ -193,6 +195,7 @@ export function Calculator({ boxId, customerId: initialCustomer }: { boxId?: str
           </div>
         </Section>
 
+        {pm.money && (
         <Section title="Price estimate">
           <div className="card p-4">
             <div className="grid grid-cols-2 gap-3">
@@ -222,7 +225,9 @@ export function Calculator({ boxId, customerId: initialCustomer }: { boxId?: str
             </div>
           </div>
         </Section>
+        )}
 
+        {pm.editOrders && (
         <div className="grid grid-cols-2 gap-3">
           <button className="btn-ghost" disabled={!valid} onClick={() => setSaveOpen(true)}>
             <Bookmark size={18} /> {saved ? 'Update box' : 'Save box'}
@@ -231,6 +236,7 @@ export function Calculator({ boxId, customerId: initialCustomer }: { boxId?: str
             <PackagePlus size={18} /> Create order
           </button>
         </div>
+        )}
       </div>
         </div>
       </Page>

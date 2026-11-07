@@ -120,7 +120,14 @@ One codebase → Android + iOS via **Capacitor 7 + React 19 + Vite 7 + TypeScrip
 - `store.tsx`: `commit` computes from `dataRef` and calls `cloud.track`; server changes come in through `setUntracked`. With sync on, a restore
   from backup is tracked (it changes the cloud too; the restore dialog says so). New ids are UUIDs (`format.uid`).
 - Tests: `cloud.test.ts` (unit); `sync.it.test.ts` + `pg-api.ts` run two/three phones against the real schema in `npm run db:test`.
-- Not done yet: logo upload to storage, role-based hiding of screens, Realtime push (polling for now), staff invite screen.
+- Staff: `supabase/migrations/…05_staff.sql` (invitations; `accept_invitation()` when the invited e-mail signs in; at least one active owner).
+  `screens/Team.tsx` (route `team`, More → Staff, owner + cloud on): members (role, switch off), invite e-mail + role, cancel invites.
+  Cloud screen shows "You're invited" in phase no-business when `my_invitation()` finds one.
+- Roles in the UI: `lib/roles.ts` (`perms`, `tabsFor`, `canMoveStatus` = same rules as SQL `set_order_status`), `usePerms()` in `store.tsx`
+  (no cloud = owner). Production/Dispatch: no prices (orders, calculator), no customers tab, only their status step, sent through
+  `cloud.setOrderStatus` (server-checked) then pulled. Sales/Accounts: no company settings / web prices / staff.
+  A candidate for the hub's HUB-AUTH-04 (roles & route permissions) once the hub can be pushed.
+- Not done yet: logo upload to storage, Realtime push (polling for now).
 
 ### Build commands
 - Web + sync: `npm run build && LANG=en_US.UTF-8 npx cap sync`

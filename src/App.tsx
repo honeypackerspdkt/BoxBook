@@ -3,7 +3,8 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import { Calculator as CalcIcon, ClipboardList, Home as HomeIcon, Menu, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { BottomNav, BrandProvider, Toaster, type BottomNavItem } from '@rajesh-hub/ui';
-import { StoreProvider, useStore } from './store';
+import { StoreProvider, usePerms, useStore } from './store';
+import { tabsFor } from './lib/roles';
 import { NavProvider, useNav, type Route, type Tab } from './nav';
 import { isNative } from './lib/storage';
 import { Home } from './screens/Home';
@@ -14,6 +15,7 @@ import { BoxesList, Business, More } from './screens/More';
 import { Company } from './screens/Company';
 import { WebPrices } from './screens/WebPrices';
 import { CloudSync } from './screens/Cloud';
+import { Team } from './screens/Team';
 import { Help } from './screens/Help';
 import { Backup } from './screens/Backup';
 import { DesktopNav } from './DesktopNav';
@@ -66,6 +68,8 @@ function renderRoute(r: Route) {
       return <WebPrices />;
     case 'cloud':
       return <CloudSync />;
+    case 'team':
+      return <Team />;
     case 'help':
       return <Help />;
   }
@@ -88,11 +92,17 @@ function renderTab(t: Tab) {
 
 function Shell() {
   const { ready, data, toastMsg } = useStore();
+  const { role } = usePerms();
+  const allowed = tabsFor(role);
   useEffect(() => {
     if (toastMsg) toast(toastMsg);
   }, [toastMsg]);
   const nav = useNav();
   useTheme(data.settings.theme);
+  // A staff role without this tab (e.g. Production has no Home): go to its first tab.
+  useEffect(() => {
+    if (ready && !allowed.includes(nav.tab)) nav.setTab(allowed[0]);
+  }, [ready, allowed, nav]);
 
   if (!ready) {
     return (
@@ -112,7 +122,7 @@ function Shell() {
         {top ? renderRoute(top) : renderTab(nav.tab)}
       </div>
 
-      <BottomNav className="lg:hidden" items={TABS} active={nav.tab} onSelect={(k) => nav.setTab(k as Tab)} />
+      <BottomNav className="lg:hidden" items={TABS.filter((t) => allowed.includes(t.key))} active={nav.tab} onSelect={(k) => nav.setTab(k as Tab)} />
       <Toaster position="top-center" theme={data.settings.theme} />
     </>
   );

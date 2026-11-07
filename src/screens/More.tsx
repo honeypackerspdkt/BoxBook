@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Box, Building2, Calculator, CircleHelp, Cloud, DatabaseBackup, Globe, Plus } from 'lucide-react';
+import { Box, Building2, Calculator, CircleHelp, Cloud, DatabaseBackup, Globe, Plus, UserCog } from 'lucide-react';
 import { setupProblems } from '@honeypackers/box-core/pricing';
-import { useStore } from '../store';
+import { usePerms, useStore } from '../store';
 import { useNav } from '../nav';
 import { specLabel } from '@honeypackers/box-core/calc';
 import { timeAgo } from '../lib/format';
@@ -33,6 +33,7 @@ const iconCls = 'grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primar
 
 export function More() {
   const { data, updateSettings, cloudStatus } = useStore();
+  const p = usePerms();
   const nav = useNav();
   const { settings } = data;
   return (
@@ -41,46 +42,54 @@ export function More() {
       <Page>
         <Section>
           <List>
-            <Row
-              onClick={() => nav.push({ name: 'boxes' })}
-              icon={
-                <span className={iconCls}>
-                  <Box size={20} />
-                </span>
-              }
-              title="Saved boxes"
-              sub={`${data.boxes.length} saved`}
-            />
-            <Row
-              onClick={() => nav.push({ name: 'company' })}
-              icon={
-                <span className={iconCls}>
-                  <Building2 size={20} />
-                </span>
-              }
-              title="Company profile"
-              sub={settings.businessName || 'Name, logo, GSTIN, bank — for invoices'}
-            />
-            <Row
-              onClick={() => nav.push({ name: 'business' })}
-              icon={
-                <span className={iconCls}>
-                  <Calculator size={20} />
-                </span>
-              }
-              title="Pricing defaults"
-              sub={`Profit ${settings.defaults.profitPct}% · GST ${settings.defaults.taxPct}% · ${settings.currency}`}
-            />
-            <Row
-              onClick={() => nav.push({ name: 'webPrices' })}
-              icon={
-                <span className={iconCls}>
-                  <Globe size={20} />
-                </span>
-              }
-              title="Web price list"
-              sub={webSummary(data.web)}
-            />
+            {p.editOrders && (
+              <Row
+                onClick={() => nav.push({ name: 'boxes' })}
+                icon={
+                  <span className={iconCls}>
+                    <Box size={20} />
+                  </span>
+                }
+                title="Saved boxes"
+                sub={`${data.boxes.length} saved`}
+              />
+            )}
+            {p.ownerSettings && (
+              <Row
+                onClick={() => nav.push({ name: 'company' })}
+                icon={
+                  <span className={iconCls}>
+                    <Building2 size={20} />
+                  </span>
+                }
+                title="Company profile"
+                sub={settings.businessName || 'Name, logo, GSTIN, bank — for invoices'}
+              />
+            )}
+            {p.ownerSettings && (
+              <Row
+                onClick={() => nav.push({ name: 'business' })}
+                icon={
+                  <span className={iconCls}>
+                    <Calculator size={20} />
+                  </span>
+                }
+                title="Pricing defaults"
+                sub={`Profit ${settings.defaults.profitPct}% · GST ${settings.defaults.taxPct}% · ${settings.currency}`}
+              />
+            )}
+            {p.ownerSettings && (
+              <Row
+                onClick={() => nav.push({ name: 'webPrices' })}
+                icon={
+                  <span className={iconCls}>
+                    <Globe size={20} />
+                  </span>
+                }
+                title="Web price list"
+                sub={webSummary(data.web)}
+              />
+            )}
             <Row
               onClick={() => nav.push({ name: 'cloud' })}
               icon={
@@ -91,6 +100,18 @@ export function More() {
               title="Cloud sync"
               sub={cloudSummary(cloudStatus)}
             />
+            {p.team && cloudStatus.phase === 'ready' && (
+              <Row
+                onClick={() => nav.push({ name: 'team' })}
+                icon={
+                  <span className={iconCls}>
+                    <UserCog size={20} />
+                  </span>
+                }
+                title="Staff"
+                sub="Invite people and choose what they see"
+              />
+            )}
             <Row
               onClick={() => nav.push({ name: 'backup' })}
               icon={

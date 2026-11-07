@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Box, Check, ClipboardList, Copy, FileText, MessageCircle, Pencil, Phone, Plus, Share2, Trash2, UserPlus, Wallet, X } from 'lucide-react';
-import { useStore } from '../store';
+import { usePerms, useStore } from '../store';
+import { canMoveStatus } from '../lib/roles';
 import { useNav } from '../nav';
 import { calcBox, estimate, isOpen, orderTotals, specLabel } from '@honeypackers/box-core/calc';
 import { fmtDate, money, money0, num, relDays, telHref, todayISO, uid, waHref } from '../lib/format';
@@ -29,6 +30,7 @@ const matches = (o: Order, f: Filter) => (f === 'all' ? true : f === 'active' ? 
 const byNewest = (a: Order, b: Order) => b.date.localeCompare(a.date) || b.number.localeCompare(a.number);
 
 export function OrdersList() {
+  const p = usePerms();
   const { data } = useStore();
   const nav = useNav();
   const [q, setQ] = useState('');
@@ -61,12 +63,14 @@ export function OrdersList() {
         {data.orders.length === 0 ? (
           <Empty
             icon={<ClipboardList size={28} />}
-            title="No orders yet"
-            text="Create a quotation or order for a customer. Track its status, deliveries and payments here."
+            title={p.editOrders ? 'No orders yet' : 'No jobs right now'}
+            text={p.editOrders ? 'Create a quotation or order for a customer. Track its status, deliveries and payments here.' : 'Orders for you appear here as soon as the office confirms them.'}
             action={
-              <button className="btn-primary" onClick={() => nav.push({ name: 'orderEdit' })}>
-                <Plus size={18} /> New order
-              </button>
+              p.editOrders && (
+                <button className="btn-primary" onClick={() => nav.push({ name: 'orderEdit' })}>
+                  <Plus size={18} /> New order
+                </button>
+              )
             }
           />
         ) : (
@@ -100,7 +104,7 @@ export function OrdersList() {
                       onClick={() => nav.push({ name: 'order', id: o.id })}
                       title={
                         <span className="flex items-center gap-2">
-                          <span className="truncate">{c?.name || 'Unknown customer'}</span>
+                          <span className="truncate">{c?.name || o.customerName || 'Unknown customer'}</span>
                           <StatusChip s={o.status} />
                         </span>
                       }
@@ -111,10 +115,12 @@ export function OrdersList() {
                         </>
                       }
                       right={
+                        p.money && (
                         <span className="tnum text-right">
                           <span className="block text-[14px] font-semibold">{money0(t.total, cur)}</span>
                           {t.balance > 0.5 && o.status !== 'quote' && <span className="block text-[11px] font-medium text-bad">{money0(t.balance, cur)} due</span>}
                         </span>
+                        )
                       }
                     />
                   );
@@ -124,13 +130,14 @@ export function OrdersList() {
           </>
         )}
       </Page>
-      {data.orders.length > 0 && <Fab label="Order" icon={<Plus size={20} />} onClick={() => nav.push({ name: 'orderEdit' })} />}
+      {data.orders.length > 0 && p.editOrders && <Fab label="Order" icon={<Plus size={20} />} onClick={() => nav.push({ name: 'orderEdit' })} />}
     </>
   );
 }
 
 export function OrderDetail({ id }: { id: string }) {
   const { data, upsertOrder, updateSettings, deleteOrder, toast, cloud } = useStore();
+  const p = usePerms();
   const nav = useNav();
   const [invBusy, setInvBusy] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
@@ -145,10 +152,22 @@ export function OrderDetail({ id }: { id: string }) {
   const next = idx >= 0 && idx < STATUS_FLOW.length - 1 ? STATUS_FLOW[idx + 1] : undefined;
   const late = isOpen(o) && o.dueDate && o.dueDate < todayISO();
 
+  const canMove = (s: OrderStatus) => s !== o.status && canMoveStatus(p.role, o.status, s);
   const setStatus = (s: OrderStatus) => {
-    if (s === o.status) return;
-    upsertOrder({ ...o, status: s });
-    toast(`Marked ${STATUS[s].label.toLowerCase()}`);
+    if (!canMove(s)) return;
+    if (p.editOrders) {
+      upsertOrder({ ...o, status: s });
+      toast(`Marked ${STATUS[s].label.toLowerCase()}`);
+      return;
+    }
+    // Production / dispatch: through the server, which checks the step is allowed for the role.
+    cloud
+      .setOrderStatus(o.id, s)
+      .then(() => toast(`Marked ${STATUS[s].label.toLowerCase()}`))
+      .catch((e) => {
+        const m = String((e as Error)?.message || e);
+        toast(/fetch|network|load failed/i.test(m) ? 'No internet connection. Try again when you are online.' : m);
+      });
   };
 
   const text = orderText(o, c, data.settings);
@@ -219,16 +238,20 @@ export function OrderDetail({ id }: { id: string }) {
     <>
       <Header
         title={o.number}
-        subtitle={c ? c.name : 'Unknown customer'}
+        subtitle={c?.name || o.customerName || 'Unknown customer'}
         back
         actions={
           <>
-            <IconBtn label="Share" onClick={share}>
-              <Share2 size={20} />
-            </IconBtn>
-            <IconBtn label="Edit" onClick={() => nav.push({ name: 'orderEdit', id })}>
-              <Pencil size={19} />
-            </IconBtn>
+            {p.money && (
+              <IconBtn label="Share" onClick={share}>
+                <Share2 size={20} />
+              </IconBtn>
+            )}
+            {p.editOrders && (
+              <IconBtn label="Edit" onClick={() => nav.push({ name: 'orderEdit', id })}>
+                <Pencil size={19} />
+              </IconBtn>
+            )}
           </>
         }
       />
@@ -243,9 +266,11 @@ export function OrderDetail({ id }: { id: string }) {
         {o.status === 'cancelled' ? (
           <div className="card mb-5 flex items-center justify-between p-4">
             <span className="text-[14px] text-muted-foreground">This order is cancelled.</span>
-            <button className="text-[14px] font-semibold text-primary" onClick={() => setStatus('quote')}>
-              Reopen
-            </button>
+            {p.editOrders && (
+              <button className="text-[14px] font-semibold text-primary" onClick={() => setStatus('quote')}>
+                Reopen
+              </button>
+            )}
           </div>
         ) : (
           <div className="card mb-5 p-4">
@@ -258,6 +283,7 @@ export function OrderDetail({ id }: { id: string }) {
                       <span className={`h-0.5 flex-1 ${i === 0 ? 'opacity-0' : i <= idx ? 'bg-primary' : 'bg-border'}`} />
                       <button
                         aria-label={`Set status ${STATUS[s].label}`}
+                        disabled={!canMove(s)}
                         onClick={() => setStatus(s)}
                         className={`grid h-8 w-8 shrink-0 place-items-center rounded-full border-2 transition ${done ? 'border-primary bg-primary text-white' : 'border-border bg-card text-muted-foreground'}`}
                       >
@@ -270,7 +296,7 @@ export function OrderDetail({ id }: { id: string }) {
                 );
               })}
             </ol>
-            {next && (
+            {next && canMove(next) && (
               <button className="btn-primary mt-4 w-full" onClick={() => setStatus(next)}>
                 Mark as {STATUS[next].label.toLowerCase()}
               </button>
@@ -281,10 +307,11 @@ export function OrderDetail({ id }: { id: string }) {
         <div className="mb-5 card divide-y divide-border/60">
           <div className="p-4">
             <div className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Customer</div>
-            <button className="mt-0.5 text-left text-[16px] font-bold" disabled={!c} onClick={() => c && nav.push({ name: 'customer', id: c.id })}>
-              {c ? c.name : 'Unknown customer'}
+            <button className="mt-0.5 text-left text-[16px] font-bold" disabled={!c || !p.customers} onClick={() => c && p.customers && nav.push({ name: 'customer', id: c.id })}>
+              {c?.name || o.customerName || 'Unknown customer'}
             </button>
             {c?.company && <div className="text-[13px] text-muted-foreground">{c.company}</div>}
+            {!p.money && c?.address && <div className="mt-1 whitespace-pre-wrap text-[13.5px]">{c.address}</div>}
           </div>
           {o.dueDate && (
             <div className="flex items-center justify-between p-4 text-[14px]">
@@ -302,7 +329,7 @@ export function OrderDetail({ id }: { id: string }) {
             <a className="btn-ghost" href={telHref(c.phone)}>
               <Phone size={18} /> Call
             </a>
-            <a className="btn-ghost" href={waHref(c.phone, text)} target="_blank" rel="noreferrer">
+            <a className="btn-ghost" href={p.money ? waHref(c.phone, text) : waHref(c.phone)} target="_blank" rel="noreferrer">
               <MessageCircle size={18} /> WhatsApp
             </a>
           </div>
@@ -316,10 +343,10 @@ export function OrderDetail({ id }: { id: string }) {
                 <div className="min-w-0">
                   <div className="text-[15px] font-semibold">{it.description || 'Item'}</div>
                   <div className="tnum text-[13px] text-muted-foreground">
-                    {num(it.qty, 0)} × {money(it.rate, cur)}
+                    {p.money ? `${num(it.qty, 0)} × ${money(it.rate, cur)}` : `${num(it.qty, 0)} pcs${it.spec ? ` · ${specLabel(it.spec)}` : ''}`}
                   </div>
                 </div>
-                <div className="tnum shrink-0 text-[15px] font-semibold">{money(it.qty * it.rate, cur)}</div>
+                {p.money && <div className="tnum shrink-0 text-[15px] font-semibold">{money(it.qty * it.rate, cur)}</div>}
               </div>
             ))}
           </div>
@@ -327,6 +354,8 @@ export function OrderDetail({ id }: { id: string }) {
 
         </div>
         <div>
+        {p.money && (
+        <>
         <Section title="Amount">
           <dl className="card tnum space-y-2 p-4 text-[14px]">
             <Line k="Subtotal" v={money(t.subtotal, cur)} />
@@ -373,6 +402,8 @@ export function OrderDetail({ id }: { id: string }) {
             </div>
           )}
         </Section>
+        </>
+        )}
 
         {o.notes && (
           <Section title="Notes">
@@ -380,6 +411,8 @@ export function OrderDetail({ id }: { id: string }) {
           </Section>
         )}
 
+        {p.editOrders && (
+        <>
         <button className="btn-primary mb-3 w-full" disabled={invBusy} onClick={sendInvoice}>
           <FileText size={18} /> {invBusy ? 'Making PDF…' : o.invoiceNo ? `Share invoice ${o.invoiceNo} (PDF)` : 'Make & share invoice (PDF)'}
         </button>
@@ -398,6 +431,8 @@ export function OrderDetail({ id }: { id: string }) {
         <button className="btn-danger mt-3 w-full" onClick={() => setDelOrder(true)}>
           <Trash2 size={18} /> Delete order
         </button>
+        </>
+        )}
       </div>
         </div>
       </Page>

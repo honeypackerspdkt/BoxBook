@@ -252,6 +252,7 @@ suite('controller flows: move a phone to the cloud, other phones join', () => {
             const r = (await c.query(`select p.organization_id, p.role, o.name from user_profiles p join organizations o on o.id = p.organization_id where p.id = $1`, [owner])).rows[0];
             return r ? { orgId: r.organization_id, orgName: r.name, role: r.role, name: '' } : null;
           }),
+        myInvitation: async () => null,
         createOrganization: (n: string, you: string) => asUser(pool, owner, async (c) => (await c.query('select public.create_organization($1, $2) as id', [n, you])).rows[0].id),
         loadSyncState: async () => memory.get(name) ?? null,
         saveSyncState: async (s: SyncState) => void memory.set(name, structuredClone(s)),
@@ -322,5 +323,60 @@ suite('controller flows: move a phone to the cloud, other phones join', () => {
     await B.ctl.syncNow();
     await C.ctl.syncNow();
     expect(C.data.customers.find((c) => c.name === 'Kumar Traders')?.notes).toBe('called');
+  });
+
+  it('an invited production worker joins, sees jobs without prices and moves one on', async () => {
+    const worker = uid();
+    await pool.query('insert into auth.users (id, email) values ($1, $2)', [worker, 'muthu@x.in']);
+    const orgId = (await pool.query(`select organization_id from user_profiles where id = $1`, [owner])).rows[0].organization_id;
+    await asUser(pool, owner, (c) => c.query(`insert into invitations (org_id, email, role, name) values ($1, 'muthu@x.in', 'Production', 'Muthu')`, [orgId]));
+    // an order the office confirmed
+    const A = phone('A2', emptyData());
+    await A.ctl.init();
+    await A.ctl.join('replace');
+    const job = A.data.orders[0];
+    A.edit((d) => ({ ...d, orders: d.orders.map((o) => (o.id === job.id ? { ...o, status: 'confirmed', updatedAt: later() } : o)) }));
+    await A.ctl.syncNow();
+
+    let data = emptyData();
+    const W = new CloudController(
+      { getData: () => data, setDataUntracked: (n) => (data = n), backupNow: async () => {} },
+      {
+        cloudConfigured: true,
+        currentUser: async () => ({ id: worker, email: 'muthu@x.in' }),
+        myProfile: () =>
+          asUser(pool, worker, async (c) => {
+            const r = (await c.query(`select p.organization_id, p.role, o.name from user_profiles p join organizations o on o.id = p.organization_id where p.id = auth.uid()`)).rows[0];
+            return r ? { orgId: r.organization_id, orgName: r.name, role: r.role, name: '' } : null;
+          }),
+        myInvitation: () =>
+          asUser(pool, worker, async (c) => {
+            const r = (await c.query('select * from public.my_invitation()')).rows[0];
+            return r ? { id: r.id, orgId: r.org_id, orgName: r.org_name, role: r.role } : null;
+          }),
+        acceptInvitation: (name: string) => asUser(pool, worker, async (c) => (await c.query('select public.accept_invitation($1) as id', [name])).rows[0].id),
+        setOrderStatus: (id: string, st: string) => asUser(pool, worker, (c) => c.query('select public.set_order_status($1, $2)', [id, st])).then(() => {}),
+        loadSyncState: async () => null,
+        saveSyncState: async () => {},
+        clearSyncState: async () => {},
+        signOut: async () => {},
+        api: () => pgApi(pool, worker),
+      },
+    );
+    await W.init();
+    expect(W.status).toMatchObject({ phase: 'no-business', invitation: { orgName: 'Flow Packers', role: 'Production' } });
+    await W.acceptInvitation('Muthu');
+    expect(W.status).toMatchObject({ phase: 'join', role: 'Production' });
+    await W.join('replace');
+    const mine = data.orders.find((o) => o.id === job.id)!;
+    expect(mine).toMatchObject({ status: 'confirmed', discount: 0, customerName: 'Kumar Traders' });
+    expect(mine.items.map((i) => [i.description, i.qty, i.rate])).toEqual([['3 ply 300×200×150', 500, 0], ['Printing plate', 1, 0]]); // no prices
+    expect(data.customers).toEqual([]);
+
+    await W.setOrderStatus(job.id, 'production');
+    expect(data.orders.find((o) => o.id === job.id)?.status).toBe('production');
+    await expect(W.setOrderStatus(job.id, 'delivered')).rejects.toThrow(/not allowed/);
+    await A.ctl.syncNow();
+    expect(A.data.orders.find((o) => o.id === job.id)?.status).toBe('production');
   });
 });

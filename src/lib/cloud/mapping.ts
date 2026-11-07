@@ -183,6 +183,7 @@ export function applyRow(d: AppData, table: string, row: Row): AppData {
         ...(row.invoice && Object.keys(row.invoice as object).length ? { invoice: row.invoice as Order['invoice'] } : {}),
         ...(row.delivery && Object.keys(row.delivery as object).length ? { delivery: row.delivery as Order['delivery'] } : {}),
         ...(row.source === 'web' ? { source: 'web' as const } : {}),
+        ...(row.customer_name ? { customerName: str(row.customer_name) } : {}),
         createdAt: prev?.createdAt || iso(row.created_at),
         updatedAt: iso(row.updated_at),
       };

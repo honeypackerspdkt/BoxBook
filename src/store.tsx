@@ -7,6 +7,7 @@ import { todayISO, uid } from './lib/format';
 import type { AppData, Customer, Order, SavedBox, Settings, WebShop } from './lib/types';
 import { CloudController, type CloudStatus } from './lib/cloud/controller';
 import { withUuidIds } from './lib/cloud/migrate';
+import { perms, type Perms } from './lib/roles';
 
 interface Store {
   data: AppData;
@@ -269,4 +270,11 @@ export function useStore() {
   const s = useContext(Ctx);
   if (!s) throw new Error('StoreProvider missing');
   return s;
+}
+
+/** The role of the person using this phone (without cloud sync: the owner) and what it may see and do. */
+export function usePerms(): Perms & { role: string } {
+  const { cloudStatus } = useStore();
+  const role = cloudStatus.phase === 'ready' && cloudStatus.role ? cloudStatus.role : 'Administrator';
+  return { role, ...perms(role) };
 }

@@ -108,6 +108,8 @@ export interface Order {
   invoice?: InvoiceMeta;
   /** Delivery details (address, pincode, zone, courier, AWB) — filled for website orders and at dispatch. */
   delivery?: Record<string, unknown>;
+  /** Customer name from the server, for staff who cannot see customer records (production). */
+  customerName?: string;
   /** Where the order came from; missing = made in the app. */
   source?: 'app' | 'web';
   createdAt: string;

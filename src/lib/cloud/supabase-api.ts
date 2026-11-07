@@ -104,3 +104,74 @@ export function supabaseApi(sb: SupabaseClient = getClient()): CloudApi {
     setCounter: async (kind, next) => void (await rpc('set_counter', { p_kind: kind, p_next: next })),
   };
 }
+
+/* ───────────── staff ───────────── */
+
+export interface Invitation {
+  id: string;
+  orgId: string;
+  orgName: string;
+  role: string;
+}
+
+export async function myInvitation(): Promise<Invitation | null> {
+  const { data, error } = await getClient().rpc('my_invitation');
+  if (error) fail(error);
+  const r = (data as { id: string; org_id: string; org_name: string; role: string }[] | null)?.[0];
+  return r ? { id: r.id, orgId: r.org_id, orgName: r.org_name, role: r.role } : null;
+}
+
+export async function acceptInvitation(displayName: string): Promise<string> {
+  const { data, error } = await getClient().rpc('accept_invitation', { p_display_name: displayName });
+  if (error) fail(error);
+  return data as string;
+}
+
+export interface Member {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  active: boolean;
+}
+export interface PendingInvite {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  createdAt: string;
+}
+
+export async function team(orgId: string): Promise<{ members: Member[]; invites: PendingInvite[] }> {
+  const sb = getClient();
+  const [m, i] = await Promise.all([
+    sb.from('user_profiles').select('id, display_name, email, role, is_active').eq('organization_id', orgId).order('created_at'),
+    sb.from('invitations').select('id, email, name, role, created_at').eq('org_id', orgId).is('accepted_at', null).is('revoked_at', null).order('created_at'),
+  ]);
+  if (m.error) fail(m.error);
+  if (i.error) fail(i.error);
+  return {
+    members: (m.data || []).map((r) => ({ id: r.id, name: r.display_name, email: r.email || '', role: r.role, active: r.is_active })),
+    invites: (i.data || []).map((r) => ({ id: r.id, email: r.email, name: r.name, role: r.role, createdAt: r.created_at })),
+  };
+}
+
+export async function invite(orgId: string, email: string, role: string, name: string) {
+  const { error } = await getClient().from('invitations').insert({ org_id: orgId, email: email.trim().toLowerCase(), role, name: name.trim() });
+  if (error) fail(error.code === '23505' ? { message: 'This e-mail already has an open invitation.' } : error);
+}
+
+export async function revokeInvite(id: string) {
+  const { error } = await getClient().from('invitations').update({ revoked_at: new Date().toISOString() }).eq('id', id);
+  if (error) fail(error);
+}
+
+export async function updateMember(id: string, patch: { role?: string; is_active?: boolean }) {
+  const { error } = await getClient().from('user_profiles').update(patch).eq('id', id);
+  if (error) fail(error);
+}
+
+export async function setOrderStatus(orderId: string, status: string, delivery?: Record<string, unknown>) {
+  const { error } = await getClient().rpc('set_order_status', { p_order: orderId, p_status: status, p_delivery: delivery ?? null });
+  if (error) fail(error);
+}

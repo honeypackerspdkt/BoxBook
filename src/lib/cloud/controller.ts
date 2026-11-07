@@ -27,6 +27,13 @@ const supabaseDeps = {
   verifyCode: async (email: string, code: string) => (await load()).verifyCode(email, code),
   createOrganization: async (name: string, you: string) => (await load()).createOrganization(name, you),
   signOut: async () => (await load()).signOut(),
+  myInvitation: async () => (await load()).myInvitation(),
+  acceptInvitation: async (name: string) => (await load()).acceptInvitation(name),
+  team: async (orgId: string) => (await load()).team(orgId),
+  invite: async (orgId: string, email: string, role: string, name: string) => (await load()).invite(orgId, email, role, name),
+  revokeInvite: async (id: string) => (await load()).revokeInvite(id),
+  updateMember: async (id: string, patch: { role?: string; is_active?: boolean }) => (await load()).updateMember(id, patch),
+  setOrderStatus: async (id: string, status: string, delivery?: Record<string, unknown>) => (await load()).setOrderStatus(id, status, delivery),
   api: lazyApi,
 };
 
@@ -46,6 +53,8 @@ export interface CloudStatus {
   email: string;
   orgName: string;
   role: string;
+  /** Open invitation for this e-mail (phase no-business). */
+  invitation: { orgName: string; role: string } | null;
   pending: number;
   failing: number;
   conflicts: Conflict[];
@@ -65,7 +74,7 @@ export interface CloudHost {
 type Deps = typeof supabaseDeps & { loadSyncState: typeof loadSyncState; saveSyncState: typeof saveSyncState; clearSyncState: typeof clearSyncState };
 
 export class CloudController {
-  status: CloudStatus = { phase: 'off', email: '', orgName: '', role: '', pending: 0, failing: 0, conflicts: [], lastSyncAt: null, syncing: false, lastError: '' };
+  status: CloudStatus = { phase: 'off', email: '', orgName: '', role: '', invitation: null, pending: 0, failing: 0, conflicts: [], lastSyncAt: null, syncing: false, lastError: '' };
   private engine: SyncEngine | null = null;
   private listeners = new Set<() => void>();
   private timer: ReturnType<typeof setTimeout> | undefined;
@@ -132,10 +141,18 @@ export class CloudController {
   private async refreshProfile() {
     try {
       this.profile = await this.deps.myProfile();
-      this.set(this.profile ? { phase: 'join', orgName: this.profile.orgName, role: this.profile.role, lastError: '' } : { phase: 'no-business', lastError: '' });
+      if (this.profile) return this.set({ phase: 'join', orgName: this.profile.orgName, role: this.profile.role, invitation: null, lastError: '' });
+      const inv = await this.deps.myInvitation();
+      this.set({ phase: 'no-business', invitation: inv ? { orgName: inv.orgName, role: inv.role } : null, lastError: '' });
     } catch (e) {
-      this.set({ lastError: msg(e) });
+      // Could not reach the server: stay signed in, show the error and a "Try again" (Cloud screen).
+      this.set({ phase: 'no-business', invitation: null, lastError: friendly(msg(e)) });
     }
+  }
+
+  /** Look up this account's business / invitation again (after an error). */
+  retry() {
+    return this.refreshProfile();
   }
 
   sendCode(email: string) {
@@ -162,6 +179,36 @@ export class CloudController {
     this.engine!.queueAll();
     await this.deps.saveSyncState(state);
     this.set({ phase: 'ready', orgName: name, role: 'Administrator' });
+    await this.syncNow();
+  }
+
+  /** Accept the owner's invitation (signed in with the invited e-mail), then join that business. */
+  async acceptInvitation(yourName: string) {
+    await this.deps.acceptInvitation(yourName);
+    await this.refreshProfile();
+  }
+
+  /* ───────────── staff (owner) ───────────── */
+  private org() {
+    if (!this.engine) throw new Error('Cloud sync is off');
+    return this.engine.state.orgId;
+  }
+  team() {
+    return this.deps.team(this.org());
+  }
+  invite(email: string, role: string, name: string) {
+    return this.deps.invite(this.org(), email, role, name);
+  }
+  revokeInvite(id: string) {
+    return this.deps.revokeInvite(id);
+  }
+  updateMember(id: string, patch: { role?: string; is_active?: boolean }) {
+    return this.deps.updateMember(id, patch);
+  }
+
+  /** Production / dispatch move an order on through the server's checked function, then pull the result. */
+  async setOrderStatus(orderId: string, status: string, delivery?: Record<string, unknown>) {
+    await this.deps.setOrderStatus(orderId, status, delivery);
     await this.syncNow();
   }
 
@@ -241,7 +288,7 @@ export class CloudController {
     await this.deps.clearSyncState();
     await this.deps.signOut().catch(() => {});
     this.profile = null;
-    this.set({ phase: 'signed-out', email: '', orgName: '', role: '', pending: 0, failing: 0, conflicts: [], lastSyncAt: null, lastError: '' });
+    this.set({ phase: 'signed-out', email: '', orgName: '', role: '', invitation: null, pending: 0, failing: 0, conflicts: [], lastSyncAt: null, lastError: '' });
   }
 }
 
