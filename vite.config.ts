@@ -8,6 +8,6 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   base: './',
   plugins: [react(), tailwindcss()],
-  resolve: { dedupe: ['react', 'react-dom', 'sonner'] },
+  resolve: { dedupe: ['react', 'react-dom', 'sonner', '@supabase/supabase-js'] },
   server: { fs: { allow: ['..'] } },
 })

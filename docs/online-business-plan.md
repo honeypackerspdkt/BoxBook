@@ -1,6 +1,6 @@
 # Honey Packers online: technical plan
 
-Status: **draft for review** (7 Nov 2026). Done so far: database schema (`supabase/`, `npm run db:test`) and the shared package `packages/box-core` with web pricing (`pricing.ts`).
+Status: **draft for review** (7 Nov 2026). Done so far: database schema (`supabase/`, `npm run db:test`), shared package `packages/box-core` with web pricing, Web price list screen, cloud sync in the app (`src/lib/cloud`, tested against the real schema), and the website in repo `honeypackers-web`.
 It covers the website and online shop at **honeypackers.in**, and cloud sync for the BoxBook app.
 
 ## 0. Decisions taken

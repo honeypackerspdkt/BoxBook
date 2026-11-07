@@ -130,7 +130,7 @@ export function OrdersList() {
 }
 
 export function OrderDetail({ id }: { id: string }) {
-  const { data, upsertOrder, updateSettings, deleteOrder, toast } = useStore();
+  const { data, upsertOrder, updateSettings, deleteOrder, toast, cloud } = useStore();
   const nav = useNav();
   const [invBusy, setInvBusy] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
@@ -174,7 +174,15 @@ export function OrderDetail({ id }: { id: string }) {
     try {
       const { buildInvoiceModel, formatInvoiceNo, renderInvoicePdf } = await import('@honeypackers/box-core/invoice');
       let no = o.invoiceNo;
-      if (!no) {
+      if (!no && cloud.active) {
+        // GST invoice numbers come from the cloud so two phones can never use the same one.
+        try {
+          no = await cloud.assignInvoiceNo(o.id);
+        } catch (e) {
+          toast(`Invoice number needs internet: ${String((e as Error)?.message || e)}`);
+          return;
+        }
+      } else if (!no) {
         no = formatInvoiceNo(s);
         upsertOrder({ ...o, invoiceNo: no });
         updateSettings({ nextInvoiceNo: s.nextInvoiceNo + 1 });

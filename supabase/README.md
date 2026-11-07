@@ -36,8 +36,11 @@ npm run db:test        # throw-away Postgres 15+; needs initdb/pg_ctl/psql (apt 
 2. Either
    - **SQL editor:** paste and run the four files in `migrations/` in order (01 → 04), or
    - **CLI:** `npx supabase login`, `npx supabase link --project-ref <ref>`, `npx supabase db push`.
-3. Auth → Providers: enable **Phone** (needs an SMS provider, e.g. Twilio / MSG91) and **Email**.
-4. Project settings → API: copy the URL and anon key into `.env.local` (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`).
+3. Auth → Providers: **Email** on (the app signs in with a 6-digit e-mail code). Auth → Email Templates → "Magic Link":
+   put the code in the e-mail, e.g. `Your BoxBook code: {{ .Token }}` (the default template only has a link, which the phone app can't use).
+   Phone sign-in for website buyers later needs an SMS provider (e.g. Twilio / MSG91).
+4. Project settings → API: copy the URL and anon key into the app's `.env.local` (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`), then build.
+   The app then shows More → Cloud sync → sign in → "Create and move my data".
    The service role key goes **only** into Netlify environment variables, never into the app.
 5. Hub edge functions (`rajesh-hub/packages/supabase-kit/functions`): set their `VALID_ROLES` to
    `["Administrator","Sales","Accounts","Production","Dispatch"]` before deploying invite-user / create-user.

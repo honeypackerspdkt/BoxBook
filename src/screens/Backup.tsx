@@ -12,7 +12,7 @@ const counts = (d: AppData) => `${d.customers.length} customers, ${d.orders.leng
 const kb = (n: number) => (n < 1024 ? `${n} B` : `${Math.round(n / 1024)} KB`);
 
 export function Backup() {
-  const { data, backupNow, replaceAll, updateSettings, toast } = useStore();
+  const { data, backupNow, replaceAll, updateSettings, toast, cloud } = useStore();
   const { settings } = data;
   const fileRef = useRef<HTMLInputElement>(null);
   const [entries, setEntries] = useState<BackupEntry[]>([]);
@@ -188,7 +188,7 @@ export function Backup() {
         title="Restore this backup?"
         text={
           pending
-            ? `${pending.source} contains ${counts(pending.data)} (saved ${fmtDateTime(pending.data.savedAt)}).\n\nThis phone currently has ${counts(data)}. They will be replaced. A safety copy of the current data is saved first.`
+            ? `${pending.source} contains ${counts(pending.data)} (saved ${fmtDateTime(pending.data.savedAt)}).\n\nThis phone currently has ${counts(data)}. They will be replaced. A safety copy of the current data is saved first.${cloud.active ? '\n\nCloud sync is on: the restored data also replaces the data in the cloud and on every phone of your business.' : ''}`
             : ''
         }
         confirmLabel="Restore"

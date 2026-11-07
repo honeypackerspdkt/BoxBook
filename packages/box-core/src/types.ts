@@ -106,6 +106,10 @@ export interface Order {
   /** Assigned the first time an invoice PDF is made, then kept. */
   invoiceNo?: string;
   invoice?: InvoiceMeta;
+  /** Delivery details (address, pincode, zone, courier, AWB) — filled for website orders and at dispatch. */
+  delivery?: Record<string, unknown>;
+  /** Where the order came from; missing = made in the app. */
+  source?: 'app' | 'web';
   createdAt: string;
   updatedAt: string;
 }

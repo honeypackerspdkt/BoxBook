@@ -74,6 +74,14 @@ begin
   assert res -> 4 ->> 'status' = 'error', 'counters is not syncable';
   assert (res -> 0 -> 'row' ->> 'rev')::int = 1, 'new row starts at rev 1';
   assert (res -> 0 -> 'row' ->> 'updated_by')::uuid = auth.uid(), 'updated_by set';
+  assert (select created_at from customers where id = '10000000-0000-0000-0000-000000000001') > now() - interval '1 minute', 'created_at defaults to now';
+  res := public.sync_push(jsonb_build_array(jsonb_build_object('table', 'boxes', 'row', jsonb_build_object(
+    'id', '50000000-0000-0000-0000-000000000001', 'org_id', org, 'rev', 0, 'name', 'Old box', 'spec', '{}'::jsonb, 'pricing', '{}'::jsonb,
+    'created_at', '2025-01-02T03:04:05Z'))));
+  assert (res -> 0 -> 'row' ->> 'created_at')::timestamptz = '2025-01-02T03:04:05Z', 'created_at kept on insert: ' || res::text;
+  res := public.sync_push(jsonb_build_array(jsonb_build_object('table', 'boxes', 'row', jsonb_build_object(
+    'id', '50000000-0000-0000-0000-000000000001', 'org_id', org, 'rev', 1, 'name', 'Renamed', 'created_at', '2030-01-01T00:00:00Z'))));
+  assert (res -> 0 -> 'row' ->> 'created_at')::timestamptz = '2025-01-02T03:04:05Z', 'created_at cannot change on update';
 
   -- edit with the rev we have (1) -> ok, rev 2
   res := public.sync_push(jsonb_build_array(jsonb_build_object('table', 'customers', 'row', jsonb_build_object(

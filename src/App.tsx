@@ -13,6 +13,7 @@ import { Calculator } from './screens/Calculator';
 import { BoxesList, Business, More } from './screens/More';
 import { Company } from './screens/Company';
 import { WebPrices } from './screens/WebPrices';
+import { CloudSync } from './screens/Cloud';
 import { Help } from './screens/Help';
 import { Backup } from './screens/Backup';
 import { DesktopNav } from './DesktopNav';
@@ -63,6 +64,8 @@ function renderRoute(r: Route) {
       return <Company />;
     case 'webPrices':
       return <WebPrices />;
+    case 'cloud':
+      return <CloudSync />;
     case 'help':
       return <Help />;
   }

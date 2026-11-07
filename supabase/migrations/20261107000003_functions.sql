@@ -227,7 +227,8 @@ begin
       continue;
     end if;
     begin
-      -- Columns the device sent (server-managed ones are ignored).
+      -- Columns the device sent (server-managed ones are ignored). created_at is kept on insert
+      -- (moving existing phone data keeps its dates); sync_stamp keeps the stored one on update.
       select string_agg(quote_ident(col.column_name), ', ' order by col.ordinal_position),
              string_agg(format('%1$I = e.%1$I', col.column_name), ', ' order by col.ordinal_position)
              filter (where col.column_name <> 'id')
@@ -235,7 +236,7 @@ begin
         from information_schema.columns col
        where col.table_schema = 'public' and col.table_name = t
          and col.column_name in (select jsonb_object_keys(r))
-         and col.column_name not in ('created_at', 'updated_at', 'updated_by');
+         and col.column_name not in ('updated_at', 'updated_by');
       if v_cols is null or not (r ? 'id') or not (r ? 'org_id') or not (r ? 'rev') then
         raise exception 'row needs id, org_id and rev';
       end if;

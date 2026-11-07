@@ -28,5 +28,10 @@ for f in supabase/migrations/*.sql; do
   echo "migrate $(basename "$f")"
   "${PSQL[@]}" -f "$f"
 done
+# Sync engine against the same database (src/lib/cloud/sync.it.test.ts)
+run_it() {
+  PGTEST_URL="postgresql://postgres@localhost:$PORT/postgres?host=$TMP" npx vitest run src/lib/cloud/sync.it.test.ts
+}
 # -t: rows only; drop the echo of set_config()/ids so only failures and the result show
 "${PSQL[@]}" -t -f supabase/tests/schema.test.sql | grep -Ev '^[[:space:]]*([0-9a-f-]{36})?[[:space:]]*$'
+run_it

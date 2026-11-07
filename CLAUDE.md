@@ -106,6 +106,22 @@ One codebase → Android + iOS via **Capacitor 7 + React 19 + Vite 7 + TypeScrip
   invoice numbers only via `assign_invoice_no()` (online).
 - Test: `npm run db:test` (throw-away local Postgres + `supabase/tests/supabase_stub.sql`, then `supabase/tests/schema.test.sql`).
 
+### Cloud sync in the app (`src/lib/cloud/`, screen `screens/Cloud.tsx`, route `cloud`)
+- Off unless `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` are set; the Supabase client (`supabase-api.ts`) is lazy-loaded only then.
+  Sign-in: 6-digit e-mail code. Session kept in `@capacitor/preferences` (same as hub `capacitorSupabaseStorage`; hub `native` needs Capacitor 8).
+- `mapping.ts` app records ↔ rows (orders split into `orders` / `order_items` / `payments`; zones; company settings ↔ `org_settings`;
+  web price list ↔ `price_rules`). `merge.ts` three-way field merge (newer edit wins on the same field, loser kept in `state.conflicts`).
+- `engine.ts` `SyncEngine`: `track(prev, next)` → outbox (diff of rows); `sync()` = push (`sync_push`, rev check) → pull (`sync_pull`) → push;
+  conflicts merged with the stored server copy (`state.base`); draft order numbers `D-<device>-<n>` get the real one via `assign_order_no`
+  after upload; `assignInvoiceNo()` online only. Production/Dispatch roles only pull; only the Administrator pushes settings/prices.
+- `controller.ts` `CloudController` (phases off / signed-out / no-business / join / ready): `createBusiness` (backup → org → UUID ids via
+  `migrate.ts` → counters → upload all), `join('replace'|'merge')`, schedule (2 s after a change, launch, resume, online, every 5 min), sign out.
+  State in `boxbook-sync.json` (`state-store.ts`), separate from the data file so backups stay plain data.
+- `store.tsx`: `commit` computes from `dataRef` and calls `cloud.track`; server changes come in through `setUntracked`. With sync on, a restore
+  from backup is tracked (it changes the cloud too; the restore dialog says so). New ids are UUIDs (`format.uid`).
+- Tests: `cloud.test.ts` (unit); `sync.it.test.ts` + `pg-api.ts` run two/three phones against the real schema in `npm run db:test`.
+- Not done yet: logo upload to storage, role-based hiding of screens, Realtime push (polling for now), staff invite screen.
+
 ### Build commands
 - Web + sync: `npm run build && LANG=en_US.UTF-8 npx cap sync`
 - Android debug APK: `cd android && ./gradlew assembleDebug` -> `android/app/build/outputs/apk/debug/app-debug.apk` (needs ~3 GB free disk the first time)

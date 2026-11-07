@@ -5,6 +5,8 @@ import { backupName, saveBackupOnDevice, toJson } from './lib/backup';
 import { driveSession, uploadDriveBackup } from './lib/drive';
 import { todayISO, uid } from './lib/format';
 import type { AppData, Customer, Order, SavedBox, Settings, WebShop } from './lib/types';
+import { CloudController, type CloudStatus } from './lib/cloud/controller';
+import { withUuidIds } from './lib/cloud/migrate';
 
 interface Store {
   data: AppData;
@@ -21,6 +23,9 @@ interface Store {
   backupNow: () => Promise<void>;
   toast: (msg: string) => void;
   toastMsg: string;
+  /** Cloud sync (Supabase). `cloudStatus` re-renders the screens when it changes. */
+  cloud: CloudController;
+  cloudStatus: CloudStatus;
 }
 
 const Ctx = createContext<Store | null>(null);
@@ -41,15 +46,35 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     toastTimer.current = window.setTimeout(() => setToastMsg(''), 2600);
   }, []);
 
-  const commit = useCallback((fn: (d: AppData) => AppData) => {
-    setData((prev) => {
-      const next = fn(prev);
-      dataRef.current = next;
-      window.clearTimeout(saveTimer.current);
-      saveTimer.current = window.setTimeout(() => saveData(dataRef.current), 250);
-      return next;
-    });
+  const scheduleSave = useCallback(() => {
+    window.clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(() => saveData(dataRef.current), 250);
   }, []);
+
+  /** Replace the data without recording a local change (changes that came from the cloud). */
+  const setUntracked = useCallback(
+    (next: AppData) => {
+      dataRef.current = next;
+      setData(next);
+      scheduleSave();
+    },
+    [scheduleSave],
+  );
+
+  // Computed from dataRef (not inside a setState updater) so each change is recorded for sync exactly once.
+  const cloudRef = useRef<CloudController | null>(null);
+  const commit = useCallback(
+    (fn: (d: AppData) => AppData) => {
+      const prev = dataRef.current;
+      const next = fn(prev);
+      if (next === prev) return;
+      dataRef.current = next;
+      setData(next);
+      scheduleSave();
+      cloudRef.current?.track(prev, next);
+    },
+    [scheduleSave],
+  );
 
   /** Once a day, keep a copy of all data on the phone. */
   const autoBackupIfDue = useCallback(async () => {
@@ -89,13 +114,35 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const runDailyBackups = useCallback(() => {
     void autoBackupIfDue();
     void driveBackupIfDue();
+    cloudRef.current?.schedule(500);
   }, [autoBackupIfDue, driveBackupIfDue]);
+
+  cloudRef.current ??= new CloudController({
+    getData: () => dataRef.current,
+    setDataUntracked: (next) => setUntracked(next),
+    backupNow: async () => {
+      await saveBackupOnDevice(dataRef.current, 'manual', dataRef.current.settings.keepBackups);
+    },
+  });
+  const cloud = cloudRef.current;
+  const [cloudStatus, setCloudStatus] = useState<CloudStatus>(cloud.status);
+  useEffect(() => cloud.subscribe(() => setCloudStatus(cloud.status)), [cloud]);
+  useEffect(() => {
+    const online = () => cloud.schedule(500);
+    window.addEventListener('online', online);
+    const iv = window.setInterval(() => cloud.schedule(0), 5 * 60 * 1000);
+    return () => {
+      window.removeEventListener('online', online);
+      window.clearInterval(iv);
+    };
+  }, [cloud]);
 
   useEffect(() => {
     loadData().then((d) => {
       dataRef.current = d;
       setData(d);
       setReady(true);
+      void cloudRef.current?.init();
       setTimeout(runDailyBackups, 1500);
     });
     const flush = () => {
@@ -158,7 +205,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const d0 = dataRef.current;
     const existing = o.id ? d0.orders.find((x) => x.id === o.id) : undefined;
     const isNew = !existing;
-    const number = existing?.number || `ORD-${String(d0.settings.nextOrderNo).padStart(4, '0')}`;
+    // With cloud sync on, a new order gets a draft number; the server gives the real one after upload.
+    const number = existing?.number || cloudRef.current?.draftOrderNumber(d0.settings.nextOrderNo) || `ORD-${String(d0.settings.nextOrderNo).padStart(4, '0')}`;
     const rec: Order = { ...existing, ...o, id: existing?.id || uid(), number, createdAt: existing?.createdAt || now(), updatedAt: now() } as Order;
     commit((d) => ({
       ...d,
@@ -194,9 +242,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       ...incoming,
       settings: { ...incoming.settings, lastAutoBackup: dataRef.current.settings.lastAutoBackup, lastBackupAt: new Date().toISOString() },
     };
-    dataRef.current = next;
-    setData(next);
-    await saveData(next);
+    const prev = dataRef.current;
+    // With cloud sync on, a restore is a change like any other: it goes to the cloud (and every phone).
+    const synced = cloudRef.current?.active ? withUuidIds(next).data : next;
+    dataRef.current = synced;
+    setData(synced);
+    await saveData(synced);
+    cloudRef.current?.track(prev, synced);
   };
 
   const backupNow = async () => {
@@ -206,7 +258,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   return (
     <Ctx.Provider
-      value={{ data, ready, upsertCustomer, deleteCustomer, upsertOrder, deleteOrder, upsertBox, deleteBox, updateSettings, updateWeb, replaceAll, backupNow, toast, toastMsg }}
+      value={{ data, ready, upsertCustomer, deleteCustomer, upsertOrder, deleteOrder, upsertBox, deleteBox, updateSettings, updateWeb, replaceAll, backupNow, toast, toastMsg, cloud, cloudStatus }}
     >
       {children}
     </Ctx.Provider>

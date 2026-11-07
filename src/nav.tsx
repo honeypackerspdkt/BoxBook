@@ -16,6 +16,7 @@ export type Route =
   | { name: 'business' }
   | { name: 'company' }
   | { name: 'webPrices' }
+  | { name: 'cloud' }
   | { name: 'help' };
 
 interface Nav {

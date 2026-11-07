@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Box, Building2, Calculator, CircleHelp, DatabaseBackup, Globe, Plus } from 'lucide-react';
+import { Box, Building2, Calculator, CircleHelp, Cloud, DatabaseBackup, Globe, Plus } from 'lucide-react';
 import { setupProblems } from '@honeypackers/box-core/pricing';
 import { useStore } from '../store';
 import { useNav } from '../nav';
 import { specLabel } from '@honeypackers/box-core/calc';
 import { timeAgo } from '../lib/format';
 import type { AppData, Settings } from '../lib/types';
+import type { CloudStatus } from '../lib/cloud/controller';
 import { Empty, Field, Header, List, NumInput, Page, Row, Section, Segmented, Fab } from '../ui';
 
 function webSummary(w: AppData['web']): string {
@@ -14,10 +15,24 @@ function webSummary(w: AppData['web']): string {
   return `${w.rules.grades.length} grade${w.rules.grades.length > 1 ? 's' : ''} · ${w.zones.length} delivery zone${w.zones.length === 1 ? '' : 's'}${w.showPrices ? '' : ' · prices hidden'}`;
 }
 
+function cloudSummary(s: CloudStatus): string {
+  switch (s.phase) {
+    case 'off':
+      return 'Not set up yet';
+    case 'signed-out':
+      return 'Off · sign in to use on several phones';
+    case 'no-business':
+    case 'join':
+      return 'Signed in · finish setting up';
+    case 'ready':
+      return s.syncing ? 'Syncing…' : s.pending ? `${s.pending} change${s.pending === 1 ? '' : 's'} waiting to upload` : `On · ${s.orgName || 'synced'}`;
+  }
+}
+
 const iconCls = 'grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/12 text-primary';
 
 export function More() {
-  const { data, updateSettings } = useStore();
+  const { data, updateSettings, cloudStatus } = useStore();
   const nav = useNav();
   const { settings } = data;
   return (
@@ -65,6 +80,16 @@ export function More() {
               }
               title="Web price list"
               sub={webSummary(data.web)}
+            />
+            <Row
+              onClick={() => nav.push({ name: 'cloud' })}
+              icon={
+                <span className={iconCls}>
+                  <Cloud size={20} />
+                </span>
+              }
+              title="Cloud sync"
+              sub={cloudSummary(cloudStatus)}
             />
             <Row
               onClick={() => nav.push({ name: 'backup' })}

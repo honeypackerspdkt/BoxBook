@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react';
-import { Boxes, Building2, Calculator, CircleHelp, ClipboardList, DatabaseBackup, Globe, Home, Users } from 'lucide-react';
+import { Boxes, Building2, Calculator, CircleHelp, ClipboardList, Cloud, DatabaseBackup, Globe, Home, Users } from 'lucide-react';
 import { useStore } from './store';
 import { useNav, type Route, type Tab } from './nav';
 
@@ -22,6 +22,7 @@ const LIBRARY: Item[] = [
   { key: 'company', label: 'Company profile', icon: Building2, go: open({ name: 'company' }) },
   { key: 'business', label: 'Pricing defaults', icon: Calculator, go: open({ name: 'business' }) },
   { key: 'webPrices', label: 'Web price list', icon: Globe, go: open({ name: 'webPrices' }) },
+  { key: 'cloud', label: 'Cloud sync', icon: Cloud, go: open({ name: 'cloud' }) },
   { key: 'backup', label: 'Backup & restore', icon: DatabaseBackup, go: open({ name: 'backup' }) },
   { key: 'help', label: 'Help & FAQ', icon: CircleHelp, go: open({ name: 'help' }) },
 ];
@@ -64,7 +65,7 @@ function NavButton({ item, active, onClick }: { item: Item; active: boolean; onC
 /** Left sidebar shown on desktop-sized screens; phones and small tablets use the bottom bar instead. */
 export function DesktopNav() {
   const nav = useNav();
-  const { data } = useStore();
+  const { data, cloudStatus } = useStore();
   const current = activeKey(nav.tab, nav.stack[nav.stack.length - 1]);
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:flex">
@@ -84,7 +85,7 @@ export function DesktopNav() {
           <NavButton key={it.key} item={it} active={current === it.key} onClick={() => it.go(nav)} />
         ))}
       </nav>
-      <p className="px-5 pb-5 pt-3 text-[12px] leading-snug opacity-70">Your data stays on this device. Back it up regularly.</p>
+      <p className="px-5 pb-5 pt-3 text-[12px] leading-snug opacity-70">{cloudStatus.phase === 'ready' ? `Synced with the cloud${cloudStatus.orgName ? ` (${cloudStatus.orgName})` : ''}.` : 'Your data stays on this device. Back it up regularly.'}</p>
     </aside>
   );
 }
