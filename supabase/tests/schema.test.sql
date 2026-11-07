@@ -374,4 +374,30 @@ do $$ begin
 end $$;
 reset role;
 
+-- ───── invitation by mobile number (SMS sign-in) ─────
+insert into auth.users (id, phone) values ('00000000-0000-0000-0000-0000000000e1', '919000012345');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000a1', false);
+set role authenticated;
+select set_config('test.org1', :'org1', false);
+do $$ begin
+  insert into invitations (org_id, phone, role, name) values (current_setting('test.org1')::uuid, '9000012345', 'Dispatch', 'Ravi');
+  begin
+    insert into invitations (org_id, role) values (current_setting('test.org1')::uuid, 'Sales');
+    raise exception 'invitation without e-mail or phone';
+  exception when check_violation then null; end;
+  begin
+    insert into invitations (org_id, phone, role) values (current_setting('test.org1')::uuid, '+91 90000', 'Sales');
+    raise exception 'bad phone accepted';
+  exception when check_violation then null; end;
+end $$;
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000e1', false);
+set role authenticated;
+do $$ begin
+  assert (select role from public.my_invitation()) = 'Dispatch', 'found by mobile number';
+  perform public.accept_invitation();
+  assert public.my_role() = 'Dispatch' and (select display_name || '/' || phone from user_profiles where id = auth.uid()) = 'Ravi/9000012345';
+end $$;
+reset role;
+
 select 'all schema tests passed' as result;

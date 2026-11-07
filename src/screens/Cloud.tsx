@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { AlertTriangle, CheckCircle2, CloudOff, Cloud as CloudIcon, LogOut, RefreshCw, Smartphone, Users } from 'lucide-react';
 import { useStore } from '../store';
 import { timeAgo } from '../lib/format';
-import { Confirm, Field, Header, Page, Section } from '../ui';
+import { Confirm, Field, Header, Page, Section, Segmented } from '../ui';
 import { ROLE_INFO, type Role } from '../lib/roles';
 
 const errText = (e: unknown) => String((e as Error)?.message || e);
@@ -71,34 +71,57 @@ function NotSetUp() {
 
 function SignIn({ run, busy }: { run: Run; busy: boolean }) {
   const { cloud } = useStore();
+  const [by, setBy] = useState<'mobile' | 'email'>('mobile');
+  const [mobile, setMobile] = useState('');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [sent, setSent] = useState(false);
-  const validEmail = /^\S+@\S+\.\S+$/.test(email.trim());
+  const digits = mobile.replace(/\D/g, '');
+  const ok = by === 'mobile' ? /^[6-9]\d{9}$/.test(digits) : /^\S+@\S+\.\S+$/.test(email.trim());
+  const send = () =>
+    run(async () => {
+      if (by === 'mobile') await cloud.sendPhoneCode(digits);
+      else await cloud.sendCode(email);
+      setSent(true);
+    }, by === 'mobile' ? 'Code sent by SMS' : 'Code sent: check your e-mail');
+  const verify = () => run(() => (by === 'mobile' ? cloud.verifyPhoneCode(digits, code) : cloud.verifyCode(email, code)));
   return (
     <Section title="Sign in">
       <div className="card space-y-4 p-4">
-        <p className="text-[14px] text-muted-foreground">We'll e-mail you a 6-digit code. No password needed.</p>
-        <Field label="E-mail">
-          <input className="input" type="email" inputMode="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} disabled={sent} />
-        </Field>
+        {!sent && <Segmented<'mobile' | 'email'> value={by} onChange={(v) => (setBy(v), setCode(''))} options={[{ value: 'mobile', label: 'Mobile number' }, { value: 'email', label: 'E-mail' }]} />}
+        <p className="text-[14px] text-muted-foreground">{by === 'mobile' ? "We'll send a 6-digit code by SMS." : "We'll e-mail you a 6-digit code."} No password needed.</p>
+        {by === 'mobile' ? (
+          <Field label="Mobile number">
+            <div className="flex items-center gap-2">
+              <span className="input flex w-16 shrink-0 items-center justify-center text-muted-foreground">+91</span>
+              <input className="input tnum" type="tel" inputMode="numeric" autoComplete="tel-national" maxLength={11} placeholder="98765 43210" value={mobile} onChange={(e) => setMobile(e.target.value.replace(/[^\d ]/g, ''))} disabled={sent} />
+            </div>
+          </Field>
+        ) : (
+          <Field label="E-mail">
+            <input className="input" type="email" inputMode="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} disabled={sent} />
+          </Field>
+        )}
         {!sent ? (
-          <button className="btn-primary w-full" disabled={!validEmail || busy} onClick={() => run(async () => (await cloud.sendCode(email), setSent(true)), 'Code sent: check your e-mail')}>
+          <button className="btn-primary w-full" disabled={!ok || busy} onClick={send}>
             Send code
           </button>
         ) : (
           <>
-            <Field label="Code from the e-mail">
+            <Field label={by === 'mobile' ? 'Code from the SMS' : 'Code from the e-mail'}>
               <input className="input tnum tracking-[0.3em]" inputMode="numeric" autoComplete="one-time-code" maxLength={8} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} />
             </Field>
             <div className="grid grid-cols-2 gap-3">
               <button className="btn-ghost" disabled={busy} onClick={() => (setSent(false), setCode(''))}>
-                Change e-mail
+                {by === 'mobile' ? 'Change number' : 'Change e-mail'}
               </button>
-              <button className="btn-primary" disabled={code.length < 6 || busy} onClick={() => run(() => cloud.verifyCode(email, code))}>
+              <button className="btn-primary" disabled={code.length < 6 || busy} onClick={verify}>
                 Sign in
               </button>
             </div>
+            <button className="w-full text-center text-[13px] font-semibold text-primary" disabled={busy} onClick={send}>
+              Send the code again
+            </button>
           </>
         )}
       </div>

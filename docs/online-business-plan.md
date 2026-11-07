@@ -233,7 +233,7 @@ The site starts from `rajesh-hub/templates/site`: Astro on Netlify, hub tokens, 
 
 | Area | Change |
 |---|---|
-| Login | Phone OTP or e-mail login, org choice, biometric unlock (hub `native`), "Work offline" while signed in |
+| Login | Mobile number + SMS code through **MSG91** (Supabase Send SMS hook) or e-mail code, org choice, biometric unlock (hub `native`), "Work offline" while signed in |
 | Store | outbox + push/pull (section 3), sync status in the header (✓ synced · ⟳ 3 waiting · ⚠ offline), "Edit conflicts" list |
 | Roles | screens and money fields hidden by role (production sees sizes, qty and due date only) |
 | Web orders | inbox tab/badge: new paid orders, quote requests, enquiries → accept, price, send link, reject |

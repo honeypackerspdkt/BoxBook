@@ -127,6 +127,10 @@ One codebase → Android + iOS via **Capacitor 7 + React 19 + Vite 7 + TypeScrip
   (no cloud = owner). Production/Dispatch: no prices (orders, calculator), no customers tab, only their status step, sent through
   `cloud.setOrderStatus` (server-checked) then pulled. Sales/Accounts: no company settings / web prices / staff.
   A candidate for the hub's HUB-AUTH-04 (roles & route permissions) once the hub can be pushed.
+- Sign-in: **mobile number + SMS code via MSG91** (default) or e-mail code. Supabase makes/verifies the code; the Auth "Send SMS" hook
+  Edge Function `supabase/functions/send-sms-msg91` (`handler.ts` pure + tested with `standardwebhooks`; `index.ts` Deno entry) sends it
+  through the MSG91 flow API (`MSG91_AUTH_KEY`, `MSG91_TEMPLATE_ID`, `MSG91_OTP_VAR`, `SEND_SMS_HOOK_SECRET`). Setup: `supabase/README.md`.
+  Staff can be invited by mobile number (`…06_phone_login.sql`: `invitations.phone`, last 10 digits, `phone10()`).
 - Not done yet: logo upload to storage, Realtime push (polling for now).
 
 ### Build commands

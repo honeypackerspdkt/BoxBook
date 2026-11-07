@@ -25,6 +25,8 @@ const supabaseDeps = {
   myProfile: async () => (await load()).myProfile(),
   sendCode: async (email: string) => (await load()).sendCode(email),
   verifyCode: async (email: string, code: string) => (await load()).verifyCode(email, code),
+  sendPhoneCode: async (mobile: string) => (await load()).sendPhoneCode(mobile),
+  verifyPhoneCode: async (mobile: string, code: string) => (await load()).verifyPhoneCode(mobile, code),
   createOrganization: async (name: string, you: string) => (await load()).createOrganization(name, you),
   signOut: async () => (await load()).signOut(),
   myInvitation: async () => (await load()).myInvitation(),
@@ -157,6 +159,16 @@ export class CloudController {
 
   sendCode(email: string) {
     return this.deps.sendCode(email);
+  }
+
+  sendPhoneCode(mobile: string) {
+    return this.deps.sendPhoneCode(mobile);
+  }
+
+  async verifyPhoneCode(mobile: string, code: string) {
+    const user = await this.deps.verifyPhoneCode(mobile, code);
+    this.set({ email: user?.phone ? `+${user.phone.replace(/^\+/, '')}` : mobile });
+    await this.refreshProfile();
   }
 
   async verifyCode(email: string, code: string) {

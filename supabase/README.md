@@ -37,14 +37,32 @@ npm run db:test        # throw-away Postgres 15+; needs initdb/pg_ctl/psql (apt 
 2. Either
    - **SQL editor:** paste and run the four files in `migrations/` in order (01 → 04), or
    - **CLI:** `npx supabase login`, `npx supabase link --project-ref <ref>`, `npx supabase db push`.
-3. Auth → Providers: **Email** on (the app signs in with a 6-digit e-mail code). Auth → Email Templates → "Magic Link":
-   put the code in the e-mail, e.g. `Your BoxBook code: {{ .Token }}` (the default template only has a link, which the phone app can't use).
-   Phone sign-in for website buyers later needs an SMS provider (e.g. Twilio / MSG91).
+3. Sign-in is by **mobile number + SMS code (MSG91)**, with e-mail code as a fallback. See "SMS codes through MSG91" below.
+   For the e-mail fallback: Auth → Email Templates → "Magic Link": put the code in the e-mail, e.g. `Your BoxBook code: {{ .Token }}`
+   (the default template only has a link, which the phone app can't use).
 4. Project settings → API: copy the URL and anon key into the app's `.env.local` (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`), then build.
    The app then shows More → Cloud sync → sign in → "Create and move my data".
    The service role key goes **only** into Netlify environment variables, never into the app.
 5. Staff are invited from the app (More → Staff), which needs no edge function. The hub's invite-user / create-user functions are
    optional; if used, set their `VALID_ROLES` to `["Administrator","Sales","Accounts","Production","Dispatch"]`.
+
+## SMS codes through MSG91
+Supabase creates and checks the 6-digit code; the Edge Function `functions/send-sms-msg91` (Auth "Send SMS" hook) only delivers it with MSG91.
+1. **MSG91** (msg91.com): get the **Auth key**. Create an SMS **template** containing the code variable, e.g.
+   `##otp## is your BoxBook login code. Do not share it. - Honey Packers`, and get it approved. In India SMS needs DLT registration
+   (principal entity, sender ID/header and the template on a DLT portal); MSG91 guides you through it. Note the **template ID**.
+2. **Supabase → Authentication → Sign In / Providers → Phone**: enable it (the hook replaces the SMS provider, so no Twilio details are needed).
+3. Deploy the function and its secrets (from this repo):
+   ```bash
+   npx supabase functions deploy send-sms-msg91 --no-verify-jwt
+   npx supabase secrets set MSG91_AUTH_KEY=<auth key> MSG91_TEMPLATE_ID=<template id> MSG91_OTP_VAR=otp
+   ```
+   `MSG91_OTP_VAR` is the variable name used in the template (`##otp##` → `otp`).
+4. **Supabase → Authentication → Hooks → Send SMS hook**: type HTTPS, URL `https://<project-ref>.supabase.co/functions/v1/send-sms-msg91`,
+   generate the secret, then `npx supabase secrets set SEND_SMS_HOOK_SECRET='v1,whsec_…'` with that value.
+5. Test: app → More → Cloud sync → Mobile number → Send code. Problems show in Edge Functions → send-sms-msg91 → Logs
+   (MSG91's message is also shown in the app, e.g. "Template not approved").
+- Tests: `npx vitest run supabase/functions` (signature check, request to MSG91, error handling, all with MSG91 faked).
 
 ## Notes
 - `price_rules.rules` is readable by everyone because website prices are public (owner's choice). It contains paper ₹/kg

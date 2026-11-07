@@ -40,11 +40,26 @@ export async function verifyCode(email: string, code: string) {
   return data.user;
 }
 
+/** Indian mobile number (10 digits, any spaces / +91) → E.164 for Supabase. */
+export const e164 = (mobile: string) => `+91${mobile.replace(/\D/g, '').slice(-10)}`;
+
+/** SMS code to a mobile number (sent through MSG91 by the send-sms-msg91 hook). */
+export async function sendPhoneCode(mobile: string) {
+  const { error } = await getClient().auth.signInWithOtp({ phone: e164(mobile), options: { shouldCreateUser: true } });
+  if (error) fail(error);
+}
+
+export async function verifyPhoneCode(mobile: string, code: string) {
+  const { data, error } = await getClient().auth.verifyOtp({ phone: e164(mobile), token: code.trim(), type: 'sms' });
+  if (error) fail(error);
+  return data.user;
+}
+
 export async function currentUser(): Promise<{ id: string; email: string } | null> {
   if (!cloudConfigured) return null;
   const { data } = await getClient().auth.getSession();
   const u = data.session?.user;
-  return u ? { id: u.id, email: u.email || u.phone || '' } : null;
+  return u ? { id: u.id, email: u.email || (u.phone ? `+${u.phone.replace(/^\+/, '')}` : '') } : null;
 }
 
 export async function signOut() {
@@ -131,12 +146,15 @@ export interface Member {
   id: string;
   name: string;
   email: string;
+  /** "+91 98765 43210" style, or ''. */
+  phone: string;
   role: string;
   active: boolean;
 }
 export interface PendingInvite {
   id: string;
   email: string;
+  phone: string;
   name: string;
   role: string;
   createdAt: string;
@@ -145,20 +163,24 @@ export interface PendingInvite {
 export async function team(orgId: string): Promise<{ members: Member[]; invites: PendingInvite[] }> {
   const sb = getClient();
   const [m, i] = await Promise.all([
-    sb.from('user_profiles').select('id, display_name, email, role, is_active').eq('organization_id', orgId).order('created_at'),
-    sb.from('invitations').select('id, email, name, role, created_at').eq('org_id', orgId).is('accepted_at', null).is('revoked_at', null).order('created_at'),
+    sb.from('user_profiles').select('id, display_name, email, phone, role, is_active').eq('organization_id', orgId).order('created_at'),
+    sb.from('invitations').select('id, email, phone, name, role, created_at').eq('org_id', orgId).is('accepted_at', null).is('revoked_at', null).order('created_at'),
   ]);
   if (m.error) fail(m.error);
   if (i.error) fail(i.error);
   return {
-    members: (m.data || []).map((r) => ({ id: r.id, name: r.display_name, email: r.email || '', role: r.role, active: r.is_active })),
-    invites: (i.data || []).map((r) => ({ id: r.id, email: r.email, name: r.name, role: r.role, createdAt: r.created_at })),
+    members: (m.data || []).map((r) => ({ id: r.id, name: r.display_name, email: r.email || '', phone: r.phone ? `+91 ${String(r.phone).replace(/\D/g, '').slice(-10)}` : '', role: r.role, active: r.is_active })),
+    invites: (i.data || []).map((r) => ({ id: r.id, email: r.email || '', phone: r.phone || '', name: r.name, role: r.role, createdAt: r.created_at })),
   };
 }
 
-export async function invite(orgId: string, email: string, role: string, name: string) {
-  const { error } = await getClient().from('invitations').insert({ org_id: orgId, email: email.trim().toLowerCase(), role, name: name.trim() });
-  if (error) fail(error.code === '23505' ? { message: 'This e-mail already has an open invitation.' } : error);
+/** Invite by e-mail or by mobile number (whichever `contact` looks like). */
+export async function invite(orgId: string, contact: string, role: string, name: string) {
+  const c = contact.trim();
+  const byPhone = !c.includes('@');
+  const row = byPhone ? { phone: c.replace(/\D/g, '').slice(-10) } : { email: c.toLowerCase() };
+  const { error } = await getClient().from('invitations').insert({ org_id: orgId, ...row, role, name: name.trim() });
+  if (error) fail(error.code === '23505' ? { message: `This ${byPhone ? 'number' : 'e-mail'} already has an open invitation.` } : error);
 }
 
 export async function revokeInvite(id: string) {
