@@ -146,6 +146,11 @@ One codebase → Android + iOS via **Capacitor 7 + React 19 + Vite 7 + TypeScrip
   as Supabase `products` (public on the website; paper prices zeroed in `spec`). `screens/Products.tsx` (routes `products`, `product{id?}`;
   More → Products, owner only): size + board grade from the web price list (BS/weight shown), packs with prices (suggestion from the
   web price list), limited stock or made to order, show on website. Website: `/products/` + cart (honeypackers-web).
+- Print artwork + order source (`…09_artwork.sql`): `orders.artwork` (box-core `OrderArtwork`, `artwork.ts`) holds the design a buyer made
+  on the website (items per side of the box: `ArtworkElement.side`, sizes from `box3d.sideSize`); files in storage `private/<org>/artwork/<id>/` (office roles + Production can read). `orders_production` includes it.
+  `orders.source` = 'app' (manual) | 'web' (online). App: Orders list has an Online / Manual filter and a `SourceChip` on every order;
+  OrderDetail shows `ArtworkCard` (preview + logo via `privateFileUrl` signed links, placement summary). `orderRow` sends `artwork`
+  only when the order has one, so a device never blanks a stored design.
 - Not done yet: logo upload to storage, Realtime push (polling for now).
 
 ### Build commands

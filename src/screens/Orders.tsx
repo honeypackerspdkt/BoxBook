@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Box, Check, ClipboardList, Copy, FileText, Link2, MessageCircle, Pencil, Phone, Plus, Share2, Trash2, UserPlus, Wallet, X } from 'lucide-react';
+import { Box, Check, ClipboardList, Copy, Download, FileText, Globe, Link2, MessageCircle, Pencil, Phone, Plus, Share2, Smartphone, Trash2, UserPlus, Wallet, X } from 'lucide-react';
+import { artworkSummary } from '@honeypackers/box-core/artwork';
+import { cloudConfigured } from '../lib/cloud/supabase-api';
 import { usePerms, useStore } from '../store';
 import { canMoveStatus } from '../lib/roles';
 import { useNav } from '../nav';
@@ -26,6 +28,73 @@ const FILTERS: { value: Filter; label: string }[] = [
 
 const PAY_MODES = ['Cash', 'UPI', 'Bank transfer', 'Cheque', 'Other'];
 
+/** Where an order came from: online (website) or manual (made in the app). */
+type Source = 'any' | 'web' | 'app';
+const SOURCES: { value: Source; label: string }[] = [
+  { value: 'any', label: 'Online + manual' },
+  { value: 'web', label: 'Online' },
+  { value: 'app', label: 'Manual' },
+];
+const sourceOf = (o: Order): 'web' | 'app' => (o.source === 'web' ? 'web' : 'app');
+
+export function SourceChip({ o }: { o: Order }) {
+  const web = sourceOf(o) === 'web';
+  return (
+    <span className={`chip shrink-0 ${web ? 'bg-primary/12 text-primary' : 'bg-muted text-muted-foreground'}`} title={web ? 'Ordered on the website' : 'Made in BoxBook'}>
+      {web ? <Globe size={12} /> : <Smartphone size={12} />}
+      {web ? 'Online' : 'Manual'}
+    </span>
+  );
+}
+
+/** The print design a buyer made on the website: preview, logo file and where everything goes. */
+function ArtworkCard({ o }: { o: Order }) {
+  const a = o.artwork!;
+  const [urls, setUrls] = useState<{ preview?: string; logo?: string; error?: string }>({});
+  useEffect(() => {
+    if (!cloudConfigured || (!a.preview && !a.logo)) return;
+    let live = true;
+    import('../lib/cloud/supabase-api')
+      .then(async (api) => ({
+        preview: a.preview ? await api.privateFileUrl(a.preview) : undefined,
+        logo: a.logo ? await api.privateFileUrl(a.logo) : undefined,
+      }))
+      .then((u) => live && setUrls(u))
+      .catch(() => live && setUrls({ error: 'Connect to the internet to see the artwork.' }));
+    return () => {
+      live = false;
+    };
+  }, [a.preview, a.logo]);
+  return (
+    <Section title="Print artwork">
+      <div className="card space-y-3 p-4">
+        {urls.preview ? (
+          <img src={urls.preview} alt={`Print design for ${o.number}`} className="w-full rounded-lg border border-border/60" />
+        ) : (
+          <div className="grid aspect-[2/1] place-items-center rounded-lg bg-muted text-[13px] text-muted-foreground">{urls.error || (a.preview ? 'Loading preview…' : 'No preview')}</div>
+        )}
+        <ul className="space-y-1 text-[14px]">
+          {artworkSummary(a).map((l, i) => (
+            <li key={i} className={i ? 'text-muted-foreground' : 'font-semibold'}>{l}</li>
+          ))}
+        </ul>
+        <div className="grid grid-cols-2 gap-3">
+          {urls.preview && (
+            <a className="btn-ghost" href={urls.preview} target="_blank" rel="noreferrer" download={`${o.number}-design.png`}>
+              <Download size={18} /> Design
+            </a>
+          )}
+          {urls.logo && (
+            <a className="btn-ghost" href={urls.logo} target="_blank" rel="noreferrer" download={`${o.number}-logo`}>
+              <Download size={18} /> Logo file
+            </a>
+          )}
+        </div>
+      </div>
+    </Section>
+  );
+}
+
 const matches = (o: Order, f: Filter) => (f === 'all' ? true : f === 'active' ? isOpen(o) : o.status === f);
 const byNewest = (a: Order, b: Order) => b.date.localeCompare(a.date) || b.number.localeCompare(a.number);
 
@@ -35,26 +104,33 @@ export function OrdersList() {
   const nav = useNav();
   const [q, setQ] = useState('');
   const [f, setF] = useState<Filter>('all');
+  const [src, setSrc] = useState<Source>('any');
   const cur = data.settings.currency;
   const customers = useMemo(() => new Map(data.customers.map((c) => [c.id, c])), [data.customers]);
 
   const counts = useMemo(() => {
     const m = new Map<Filter, number>();
-    for (const x of FILTERS) m.set(x.value, data.orders.filter((o) => matches(o, x.value)).length);
+    const inSrc = data.orders.filter((o) => src === 'any' || sourceOf(o) === src);
+    for (const x of FILTERS) m.set(x.value, inSrc.filter((o) => matches(o, x.value)).length);
     return m;
+  }, [data.orders, src]);
+  const srcCounts = useMemo(() => {
+    const web = data.orders.filter((o) => sourceOf(o) === 'web').length;
+    return { any: data.orders.length, web, app: data.orders.length - web } as Record<Source, number>;
   }, [data.orders]);
 
   const list = useMemo(() => {
     const s = q.trim().toLowerCase();
     return data.orders
       .filter((o) => matches(o, f))
+      .filter((o) => src === 'any' || sourceOf(o) === src)
       .filter((o) => {
         if (!s) return true;
         const c = customers.get(o.customerId);
         return [o.number, c?.name, c?.company, ...o.items.map((i) => i.description)].some((x) => x?.toLowerCase().includes(s));
       })
       .sort(byNewest);
-  }, [data.orders, customers, q, f]);
+  }, [data.orders, customers, q, f, src]);
 
   return (
     <>
@@ -77,6 +153,18 @@ export function OrdersList() {
           <>
             <div className="mb-3">
               <SearchBox value={q} onChange={setQ} placeholder="Search order, customer, item…" />
+            </div>
+            <div className="mb-2 grid grid-cols-3 gap-1 rounded-xl bg-muted p-1" role="group" aria-label="Online or manual orders">
+              {SOURCES.map((x) => (
+                <button
+                  key={x.value}
+                  onClick={() => setSrc(x.value)}
+                  aria-pressed={src === x.value}
+                  className={`rounded-lg px-2 py-2 text-[13px] font-semibold ${src === x.value ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'}`}
+                >
+                  {x.label} <span className="tnum opacity-60">{srcCounts[x.value]}</span>
+                </button>
+              ))}
             </div>
             <div className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1" style={{ scrollbarWidth: 'none' }}>
               {FILTERS.map((x) => (
@@ -106,6 +194,7 @@ export function OrdersList() {
                         <span className="flex items-center gap-2">
                           <span className="truncate">{c?.name || o.customerName || 'Unknown customer'}</span>
                           <StatusChip s={o.status} />
+                          <SourceChip o={o} />
                         </span>
                       }
                       sub={
@@ -283,7 +372,10 @@ export function OrderDetail({ id }: { id: string }) {
         <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_23rem] lg:items-start lg:gap-8">
         <div>
         <div className="mb-4 flex items-center justify-between">
-          <StatusChip s={o.status} />
+          <span className="flex items-center gap-2">
+            <StatusChip s={o.status} />
+            <SourceChip o={o} />
+          </span>
           <span className="text-[13px] text-muted-foreground">{fmtDate(o.date)}</span>
         </div>
 
@@ -375,6 +467,8 @@ export function OrderDetail({ id }: { id: string }) {
             ))}
           </div>
         </Section>
+
+        {o.artwork && o.artwork.elements?.length > 0 && <ArtworkCard o={o} />}
 
         </div>
         <div>

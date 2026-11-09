@@ -27,10 +27,21 @@ const fail = (e: { message?: string } | null | undefined): never => {
   throw new Error(e?.message || 'Cloud request failed');
 };
 
+/** A link (1 hour) to a file in the private bucket, e.g. a website order's artwork. Staff only (storage policies). */
+export async function privateFileUrl(path: string): Promise<string> {
+  const { data, error } = await getClient().storage.from('private').createSignedUrl(path, 3600);
+  if (error || !data) fail(error);
+  return data!.signedUrl;
+}
+
 /* ───────────── sign-in with a 6-digit e-mail code ───────────── */
 
 export async function sendCode(email: string) {
-  const { error } = await getClient().auth.signInWithOtp({ email: email.trim(), options: { shouldCreateUser: true } });
+  // Supabase's built-in mailer sends a link (its templates can only be edited with custom SMTP). On the web the link
+  // comes back to this page and supabase-js signs in from the URL at start-up; with custom SMTP the code works too.
+  const web = /^https?:$/.test(location.protocol);
+  const emailRedirectTo = web ? location.origin + location.pathname : undefined;
+  const { error } = await getClient().auth.signInWithOtp({ email: email.trim(), options: { shouldCreateUser: true, emailRedirectTo } });
   if (error) fail(error);
 }
 

@@ -83,13 +83,13 @@ function SignIn({ run, busy }: { run: Run; busy: boolean }) {
       if (by === 'mobile') await cloud.sendPhoneCode(digits);
       else await cloud.sendCode(email);
       setSent(true);
-    }, by === 'mobile' ? 'Code sent by SMS' : 'Code sent: check your e-mail');
+    }, by === 'mobile' ? 'Code sent by SMS' : 'E-mail sent: open the link in it, or type the code');
   const verify = () => run(() => (by === 'mobile' ? cloud.verifyPhoneCode(digits, code) : cloud.verifyCode(email, code)));
   return (
     <Section title="Sign in">
       <div className="card space-y-4 p-4">
         {!sent && <Segmented<'mobile' | 'email'> value={by} onChange={(v) => (setBy(v), setCode(''))} options={[{ value: 'mobile', label: 'Mobile number' }, { value: 'email', label: 'E-mail' }]} />}
-        <p className="text-[14px] text-muted-foreground">{by === 'mobile' ? "We'll send a 6-digit code by SMS." : "We'll e-mail you a 6-digit code."} No password needed.</p>
+        <p className="text-[14px] text-muted-foreground">{by === 'mobile' ? "We'll send a 6-digit code by SMS." : "We'll e-mail you a sign-in link (or a 6-digit code). Open the link on this device."} No password needed.</p>
         {by === 'mobile' ? (
           <Field label="Mobile number">
             <div className="flex items-center gap-2">

@@ -182,3 +182,47 @@ export function dimensionLines(pr: Projected, centre: { x: number; y: number }, 
     };
   });
 }
+
+/* ───────── sides of the box, for print artwork ───────── */
+
+/** The six sides a design can go on. Front / back are length × height, left / right width × height, top / bottom length × width. */
+export type BoxSide = 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom';
+export const BOX_SIDES: BoxSide[] = ['front', 'right', 'back', 'left', 'top', 'bottom'];
+export const SIDE_LABEL: Record<BoxSide, string> = { front: 'Front', back: 'Back', left: 'Left', right: 'Right', top: 'Top', bottom: 'Bottom' };
+
+const vtx = (x: number, y: number, z: number) => x | (y << 1) | (z << 2);
+/** Per side: the face (axis, side) and its top-left, top-right and bottom-left corners as seen from outside. */
+const SIDES: Record<BoxSide, { axis: number; side: 0 | 1; tl: number; tr: number; bl: number }> = {
+  front: { axis: 2, side: 1, tl: vtx(0, 1, 1), tr: vtx(1, 1, 1), bl: vtx(0, 0, 1) },
+  back: { axis: 2, side: 0, tl: vtx(1, 1, 0), tr: vtx(0, 1, 0), bl: vtx(1, 0, 0) },
+  right: { axis: 0, side: 1, tl: vtx(1, 1, 1), tr: vtx(1, 1, 0), bl: vtx(1, 0, 1) },
+  left: { axis: 0, side: 0, tl: vtx(0, 1, 0), tr: vtx(0, 1, 1), bl: vtx(0, 0, 0) },
+  // top seen from above with the front towards you; bottom seen from below with the front at the top
+  top: { axis: 1, side: 1, tl: vtx(0, 1, 0), tr: vtx(1, 1, 0), bl: vtx(0, 1, 1) },
+  bottom: { axis: 1, side: 0, tl: vtx(0, 0, 1), tr: vtx(1, 0, 1), bl: vtx(0, 0, 0) },
+};
+
+/** Size of a side in mm (width × height as you look at it). */
+export function sideSize(d: Dims, s: BoxSide): { width: number; height: number } {
+  if (s === 'front' || s === 'back') return { width: d.length, height: d.height };
+  if (s === 'left' || s === 'right') return { width: d.width, height: d.height };
+  return { width: d.length, height: d.width };
+}
+
+/** Where a side is on screen: its corners, whether it faces the viewer, and its face polygon. */
+export function sideOnScreen(pr: Projected, s: BoxSide) {
+  const g = SIDES[s];
+  const face = pr.faces[g.axis * 2 + g.side];
+  const p = (i: number) => ({ x: pr.pts[i].x, y: pr.pts[i].y });
+  return { tl: p(g.tl), tr: p(g.tr), bl: p(g.bl), visible: face.visible, poly: face.idx.map(p) };
+}
+
+/** A view that shows this side well (with a little of its neighbours, so it still looks like a box). */
+export const SIDE_VIEW: Record<BoxSide, View> = {
+  front: { yaw: -0.45, pitch: 0.35 },
+  right: { yaw: -1.15, pitch: 0.35 },
+  back: { yaw: 2.7, pitch: 0.35 },
+  left: { yaw: 1.15, pitch: 0.35 },
+  top: { yaw: -0.5, pitch: 1.05 },
+  bottom: { yaw: -0.5, pitch: -1.05 },
+};

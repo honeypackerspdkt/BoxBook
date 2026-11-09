@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clampPitch, dimensionLines, project, rotate, MAX_PITCH } from './box3d';
+import { clampPitch, dimensionLines, project, rotate, MAX_PITCH, BOX_SIDES, SIDE_VIEW, sideOnScreen, sideSize } from './box3d';
 
 const dims = { length: 300, width: 200, height: 150 };
 
@@ -65,5 +65,25 @@ describe('3D box geometry', () => {
   it('limits the tilt', () => {
     expect(clampPitch(5)).toBe(MAX_PITCH);
     expect(clampPitch(-5)).toBe(-MAX_PITCH);
+  });
+});
+
+describe('box sides for artwork', () => {
+  const d = { length: 300, width: 200, height: 150 };
+  it('gives each side its size in mm', () => {
+    expect(sideSize(d, 'front')).toEqual({ width: 300, height: 150 });
+    expect(sideSize(d, 'right')).toEqual({ width: 200, height: 150 });
+    expect(sideSize(d, 'top')).toEqual({ width: 300, height: 200 });
+  });
+  it('shows the chosen side to the viewer, upright and not mirrored', () => {
+    for (const s of BOX_SIDES) {
+      const pr = project(d, SIDE_VIEW[s], 100, 0, 0);
+      const o = sideOnScreen(pr, s);
+      expect(o.visible, s).toBe(true);
+      // top-left → top-right goes right on screen, and a 2D cross product > 0 means the picture is not mirrored
+      const ux = o.tr.x - o.tl.x, uy = o.tr.y - o.tl.y, vx = o.bl.x - o.tl.x, vy = o.bl.y - o.tl.y;
+      expect(ux * vy - uy * vx, s).toBeGreaterThan(0);
+      if (s !== 'top' && s !== 'bottom') expect(o.bl.y, s).toBeGreaterThan(o.tl.y); // bottom edge is lower on screen
+    }
   });
 });

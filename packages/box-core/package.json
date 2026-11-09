@@ -14,7 +14,8 @@
     "./words": "./src/words.ts",
     "./company": "./src/company.ts",
     "./types": "./src/types.ts",
-    "./invoice": "./src/invoice.ts"
+    "./invoice": "./src/invoice.ts",
+    "./artwork": "./src/artwork.ts"
   },
   "files": ["src", "assets"],
   "dependencies": {

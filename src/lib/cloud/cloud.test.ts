@@ -152,3 +152,19 @@ describe('payment link from the app', () => {
     await expect(ctl.paymentLink('not-uploaded')).rejects.toThrow(/not reached the cloud/);
   });
 });
+
+describe('website artwork on orders', () => {
+  const artwork = { print: 'one' as const, colours: 1, box: { length: 300, width: 200, height: 150 }, ink: '#c62828', elements: [{ id: 't', kind: 'text' as const, text: 'Fragile', x: 0.5, y: 0.8, size: 0.1 }], preview: 'org/artwork/x/preview.png' };
+  const row = { id: 'o-web', number: 'ORD-0009', customer_id: '', date: '2026-11-09', status: 'quote', discount: 0, tax_pct: 5, notes: '', invoice: {}, delivery: {}, source: 'web', artwork, rev: 1, updated_at: '2026-11-09T00:00:00Z', deleted_at: null };
+
+  it('comes in from the server and goes back unchanged', () => {
+    const d = applyRow(emptyData(), 'orders', row);
+    expect(d.orders[0]).toMatchObject({ source: 'web', artwork });
+    expect(rowsOf(d).get('orders:o-web')!.row.artwork).toEqual(artwork);
+  });
+  it('is never sent for manual orders (a device must not blank a stored design)', () => {
+    const d = applyRow(emptyData(), 'orders', { ...row, id: 'o-app', source: 'app', artwork: {} });
+    expect(d.orders[0].artwork).toBeUndefined();
+    expect('artwork' in rowsOf(d).get('orders:o-app')!.row).toBe(false);
+  });
+});

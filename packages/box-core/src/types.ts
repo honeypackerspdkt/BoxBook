@@ -110,8 +110,10 @@ export interface Order {
   delivery?: Record<string, unknown>;
   /** Customer name from the server, for staff who cannot see customer records (production). */
   customerName?: string;
-  /** Where the order came from; missing = made in the app. */
+  /** Where the order came from; missing = made in the app (manual order). */
   source?: 'app' | 'web';
+  /** Print design the buyer made on the website (see artwork.ts); files are in the private storage bucket. */
+  artwork?: OrderArtwork;
   createdAt: string;
   updatedAt: string;
 }
@@ -169,4 +171,42 @@ export interface CompanySettings {
   defaultUnit: string;
   currency: string;
   defaults: Pricing;
+}
+
+/** Printing on a custom box: plain, one ink colour, or multicolour. */
+export type PrintKind = 'plain' | 'one' | 'multi';
+
+/** A logo or a line of text placed on one side of the box. x / y = centre, as a fraction of that side's width / height. */
+export interface ArtworkElement {
+  id: string;
+  kind: 'logo' | 'text';
+  /** Which side of the box (box3d BoxSide); missing = front. */
+  side?: 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom';
+  x: number;
+  y: number;
+  /** Logo: width as a fraction of the face width. */
+  w?: number;
+  /** Logo: height ÷ width of the image. */
+  ratio?: number;
+  /** Text: the words, and the letter height as a fraction of the face height. */
+  text?: string;
+  size?: number;
+  bold?: boolean;
+  /** Ink colour (#rrggbb). One-colour print uses the design's ink for everything. */
+  color?: string;
+}
+
+/** The buyer's print design, kept with the order (orders.artwork). */
+export interface OrderArtwork {
+  print: PrintKind;
+  /** Colours the price was worked out for. */
+  colours: number;
+  /** The box it was designed for (inside size, mm); each side's size follows from it (box3d sideSize). */
+  box: { length: number; width: number; height: number };
+  /** One-colour print: the ink. */
+  ink?: string;
+  elements: ArtworkElement[];
+  /** Paths in the private storage bucket (<org>/artwork/<id>/…). */
+  logo?: string;
+  preview?: string;
 }

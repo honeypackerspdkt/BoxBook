@@ -65,6 +65,8 @@ export const orderRow = (o: Order): Row => ({
   invoice: o.invoice || {},
   delivery: o.delivery || {},
   source: o.source || 'app',
+  // Only sent when the order has one: a device never blanks the design the website stored.
+  ...(o.artwork ? { artwork: o.artwork } : {}),
   created_at: o.createdAt || null,
 });
 
@@ -205,6 +207,7 @@ export function applyRow(d: AppData, table: string, row: Row): AppData {
         ...(row.invoice && Object.keys(row.invoice as object).length ? { invoice: row.invoice as Order['invoice'] } : {}),
         ...(row.delivery && Object.keys(row.delivery as object).length ? { delivery: row.delivery as Order['delivery'] } : {}),
         ...(row.source === 'web' ? { source: 'web' as const } : {}),
+        ...(row.artwork && Object.keys(row.artwork as object).length ? { artwork: row.artwork as Order['artwork'] } : {}),
         ...(row.customer_name ? { customerName: str(row.customer_name) } : {}),
         createdAt: prev?.createdAt || iso(row.created_at),
         updatedAt: iso(row.updated_at),
