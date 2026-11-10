@@ -49,6 +49,13 @@ function activeKey(tab: Tab, top: Route | undefined): string {
       return 'stock';
     case 'product':
       return 'products';
+    case 'enquiry':
+      return 'inbox';
+    case 'member':
+    case 'invite':
+      return 'team';
+    case 'boxStockItem':
+      return 'boxStock';
     default:
       return top.name;
   }

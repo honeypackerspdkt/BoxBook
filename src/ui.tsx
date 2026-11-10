@@ -282,11 +282,11 @@ export function SearchBox({ value, onChange, placeholder }: { value: string; onC
   );
 }
 
-export function Fab({ label, onClick, icon }: { label: string; onClick: () => void; icon: ReactNode }) {
+export function Fab({ label, onClick, icon, className = '' }: { label: string; onClick: () => void; icon: ReactNode; className?: string }) {
   return (
     <button
       onClick={onClick}
-      className="fixed bottom-[calc(84px+env(safe-area-inset-bottom))] right-4 z-30 lg:bottom-8 lg:right-8 flex items-center gap-2 rounded-2xl bg-primary px-5 py-3.5 text-[15px] font-bold text-white shadow-lift active:scale-95"
+      className={`fixed bottom-[calc(84px+env(safe-area-inset-bottom))] right-4 z-30 lg:bottom-8 lg:right-8 flex items-center gap-2 rounded-2xl bg-primary px-5 py-3.5 text-[15px] font-bold text-white shadow-lift active:scale-95 ${className}`}
     >
       {icon}
       {label}

@@ -10,9 +10,10 @@ import { fmtDate, money, money0, num, relDays, telHref, todayISO, uid, waHref } 
 import { orderText, shareText } from '../lib/share';
 import { shareFile } from '../lib/sharefile';
 import type { InvoiceMeta, Order, OrderItem, OrderStatus } from '../lib/types';
-import { Confirm, Empty, Fab, Field, Header, IconBtn, List, NumInput, Page, Row, SearchBox, Section, Sheet, STATUS, STATUS_FLOW, StatusChip } from '../ui';
+import { Confirm, Empty, Field, Header, IconBtn, List, NumInput, Page, Row, SearchBox, Section, Sheet, STATUS, STATUS_FLOW, StatusChip } from '../ui';
 import { Missing } from './Customers';
 import { OrderPaper } from './OrderPaper';
+import { AlertBox, Chips, ListPage, NoMatch, StatCards, Tile, TileGrid, Toolbar, useLayout } from '../list-page';
 
 type Filter = 'all' | 'active' | OrderStatus;
 
@@ -131,95 +132,113 @@ export function OrdersList() {
       .sort(byNewest);
   }, [data.orders, customers, q, f, src]);
 
+  const [layout, setLayout] = useLayout('orders', 'list');
+  const open = data.orders.filter(isOpen);
+  const late = open.filter((o) => o.dueDate && o.dueDate < todayISO()).sort((a, b) => (a.dueDate || '').localeCompare(b.dueDate || ''));
+  const toCollect = data.orders.filter((o) => o.status !== 'quote' && o.status !== 'cancelled').reduce((n, o) => n + Math.max(0, orderTotals(o).balance), 0);
+  const name = (o: Order) => customers.get(o.customerId)?.name || o.customerName || 'Unknown customer';
+  const add = p.editOrders && { label: 'New order', onClick: () => nav.push({ name: 'orderEdit' }) };
+
   return (
-    <>
-      <Header title="Orders" subtitle={`${data.orders.length} total`} large />
-      <Page>
-        {data.orders.length === 0 ? (
+    <ListPage title="Orders" subtitle={`${data.orders.length} total`} large add={data.orders.length > 0 && add}>
+      {data.orders.length === 0 ? (
+        <div className="card">
           <Empty
             icon={<ClipboardList size={28} />}
             title={p.editOrders ? 'No orders yet' : 'No jobs right now'}
             text={p.editOrders ? 'Create a quotation or order for a customer. Track its status, deliveries and payments here.' : 'Orders for you appear here as soon as the office confirms them.'}
             action={
-              p.editOrders && (
-                <button className="btn-primary" onClick={() => nav.push({ name: 'orderEdit' })}>
+              add && (
+                <button className="btn-primary" onClick={add.onClick}>
                   <Plus size={18} /> New order
                 </button>
               )
             }
           />
-        ) : (
-          <>
-            <div className="mb-3">
-              <SearchBox value={q} onChange={setQ} placeholder="Search order, customer, item…" />
-            </div>
-            <div className="mb-2 grid grid-cols-3 gap-1 rounded-xl bg-muted p-1" role="group" aria-label="Online or manual orders">
-              {SOURCES.map((x) => (
-                <button
-                  key={x.value}
-                  onClick={() => setSrc(x.value)}
-                  aria-pressed={src === x.value}
-                  className={`rounded-lg px-2 py-2 text-[13px] font-semibold ${src === x.value ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'}`}
-                >
-                  {x.label} <span className="tnum opacity-60">{srcCounts[x.value]}</span>
-                </button>
-              ))}
-            </div>
-            <div className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1" style={{ scrollbarWidth: 'none' }}>
-              {FILTERS.map((x) => (
-                <button
-                  key={x.value}
-                  onClick={() => setF(x.value)}
-                  className={`chip shrink-0 px-3.5 py-2 text-[13px] ${f === x.value ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'}`}
-                >
-                  {x.label}
-                  <span className={`tnum ${f === x.value ? 'opacity-80' : 'opacity-60'}`}>{counts.get(x.value)}</span>
-                </button>
-              ))}
-            </div>
-            {list.length === 0 ? (
-              <p className="py-10 text-center text-muted-foreground">No orders match.</p>
-            ) : (
-              <List>
-                {list.map((o) => {
-                  const t = orderTotals(o);
-                  const c = customers.get(o.customerId);
-                  const late = isOpen(o) && o.dueDate && o.dueDate < todayISO();
-                  return (
-                    <Row
-                      key={o.id}
-                      onClick={() => nav.push({ name: 'order', id: o.id })}
-                      title={
-                        <span className="flex items-center gap-2">
-                          <span className="truncate">{c?.name || o.customerName || 'Unknown customer'}</span>
-                          <StatusChip s={o.status} />
-                          <SourceChip o={o} />
-                        </span>
-                      }
-                      sub={
-                        <>
-                          {o.number} · {fmtDate(o.date)}
-                          {o.dueDate && isOpen(o) && <span className={late ? 'font-semibold text-bad' : ''}> · Due {relDays(o.dueDate).toLowerCase()}</span>}
-                        </>
-                      }
-                      right={
-                        p.money && (
+        </div>
+      ) : (
+        <>
+          <StatCards
+            items={[
+              { label: 'Open', value: String(open.length), tone: 'primary' },
+              { label: 'Late', value: String(late.length), tone: late.length ? 'bad' : undefined },
+              p.money ? { label: 'To collect', value: money0(toCollect, cur) } : { label: 'Ready', value: String(data.orders.filter((o) => o.status === 'ready').length) },
+            ]}
+          />
+          <AlertBox
+            title="Past the due date"
+            lines={late.slice(0, 4).map((o) => (
+              <>
+                <b>{o.number}</b> · {name(o)}: due {relDays(o.dueDate!).toLowerCase()}
+              </>
+            ))}
+          />
+          <Toolbar search={<SearchBox value={q} onChange={setQ} placeholder="Search order, customer, item…" />} layout={layout} onLayout={setLayout}>
+            <Chips value={src} onChange={setSrc} options={SOURCES.map((x) => ({ ...x, count: srcCounts[x.value] }))} />
+            <Chips value={f} onChange={setF} options={FILTERS.map((x) => ({ ...x, count: counts.get(x.value) }))} />
+          </Toolbar>
+          {list.length === 0 ? (
+            <NoMatch text="No orders match." />
+          ) : layout === 'tiles' ? (
+            <TileGrid>
+              {list.map((o) => {
+                const t = orderTotals(o);
+                const isLate = isOpen(o) && !!o.dueDate && o.dueDate < todayISO();
+                return (
+                  <Tile
+                    key={o.id}
+                    onClick={() => nav.push({ name: 'order', id: o.id })}
+                    badge={o.number}
+                    flag={isLate ? 'Late' : STATUS[o.status].label}
+                    flagTone={isLate ? 'bad' : o.status === 'cancelled' ? 'muted' : o.status === 'delivered' ? 'good' : 'warn'}
+                    big={p.money ? money0(t.total, cur) : num(o.items.reduce((n, i) => n + i.qty, 0), 0)}
+                    unit={p.money ? undefined : 'pcs'}
+                    left={fmtDate(o.date)}
+                    right={p.money && t.balance > 0.5 && o.status !== 'quote' ? <span className="font-semibold text-bad">{money0(t.balance, cur)} due</span> : o.source === 'web' ? 'Online' : 'Manual'}
+                    caption={name(o)}
+                    dim={o.status === 'cancelled'}
+                  />
+                );
+              })}
+            </TileGrid>
+          ) : (
+            <List>
+              {list.map((o) => {
+                const t = orderTotals(o);
+                const isLate = isOpen(o) && o.dueDate && o.dueDate < todayISO();
+                return (
+                  <Row
+                    key={o.id}
+                    onClick={() => nav.push({ name: 'order', id: o.id })}
+                    title={
+                      <span className="flex items-center gap-2">
+                        <span className="truncate">{name(o)}</span>
+                        <StatusChip s={o.status} />
+                        <SourceChip o={o} />
+                      </span>
+                    }
+                    sub={
+                      <>
+                        {o.number} · {fmtDate(o.date)}
+                        {o.dueDate && isOpen(o) && <span className={isLate ? 'font-semibold text-bad' : ''}> · Due {relDays(o.dueDate).toLowerCase()}</span>}
+                      </>
+                    }
+                    right={
+                      p.money && (
                         <span className="tnum text-right">
                           <span className="block text-[14px] font-semibold">{money0(t.total, cur)}</span>
                           {t.balance > 0.5 && o.status !== 'quote' && <span className="block text-[11px] font-medium text-bad">{money0(t.balance, cur)} due</span>}
                         </span>
-                        )
-                      }
-                    />
-                  );
-                })}
-              </List>
-            )}
-          </>
-        )}
-      </Page>
-      {data.orders.length > 0 && p.editOrders && <Fab label="Order" icon={<Plus size={20} />} onClick={() => nav.push({ name: 'orderEdit' })} />}
-    </>
+                      )
+                    }
+                  />
+                );
+              })}
+            </List>
+          )}
+        </>
+      )}
+    </ListPage>
   );
 }
 

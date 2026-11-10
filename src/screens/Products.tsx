@@ -6,7 +6,9 @@ import type { ProductPack } from '@honeypackers/box-core/types';
 import { useStore, usePerms } from '../store';
 import { useNav } from '../nav';
 import { money, num } from '../lib/format';
-import { Confirm, Empty, Fab, Field, Header, List, NumInput, Page, Row, Section, Toggle } from '../ui';
+import { Confirm, Empty, Field, Header, List, NumInput, Page, Row, SearchBox, Section, Toggle } from '../ui';
+import { AlertBox, Chips, ListPage, NoMatch, StatCards, Tile, TileGrid, Toolbar, useLayout } from '../list-page';
+import { perBoxPrice } from '../lib/box-stock';
 
 const packsLabel = (packs: ProductPack[], cur: string) => packs.map((k) => `${k.qty} for ${money(k.price, cur)}`).join(' · ') || 'No packs yet';
 
@@ -15,38 +17,85 @@ export function ProductsList() {
   const { data } = useStore();
   const nav = useNav();
   const cur = data.settings.currency;
-  const list = [...data.products].sort((a, b) => a.sort - b.sort || a.name.localeCompare(b.name));
+  const [q, setQ] = useState('');
+  const [ply, setPly] = useState<string>('all');
+  const [layout, setLayout] = useLayout('products', 'tiles');
+  const all = [...data.products].sort((a, b) => a.sort - b.sort || a.name.localeCompare(b.name));
+  const plies = [...new Set(all.map((p) => p.ply))].sort((a, b) => a - b);
+  const s = q.trim().toLowerCase();
+  const list = all.filter((p) => (ply === 'all' || String(p.ply) === ply) && (!s || [p.name, p.description, p.slug].some((x) => x?.toLowerCase().includes(s))));
+  const hidden = all.filter((p) => !p.active);
+  const noPrice = all.filter((p) => p.active && !p.packs.some((k) => k.price > 0));
+  const add = { label: 'Add product', onClick: () => nav.push({ name: 'product' }) };
+  const size = (p: (typeof all)[number]) => `${num(p.spec.length, 0)}×${num(p.spec.width, 0)}×${num(p.spec.height, 0)} mm`;
+
   return (
-    <>
-      <Header title="Products" subtitle="Standard boxes sold in packs online" back />
-      <Page>
-        {list.length === 0 ? (
+    <ListPage title="Products" subtitle="Standard boxes sold in packs online" back add={all.length > 0 && add}>
+      {all.length === 0 ? (
+        <div className="card">
           <Empty
             icon={<Package size={28} />}
             title="No products yet"
             text="Add the box sizes you keep in stock or make often. Buyers pick a pack size on the website and pay online."
             action={
-              <button className="btn-primary" onClick={() => nav.push({ name: 'product' })}>
+              <button className="btn-primary" onClick={add.onClick}>
                 <Plus size={18} /> Add product
               </button>
             }
           />
-        ) : (
-          <List>
-            {list.map((p) => (
-              <Row
-                key={p.id}
-                onClick={() => nav.push({ name: 'product', id: p.id })}
-                icon={<Package size={20} className={p.active ? 'text-primary' : 'text-muted-foreground'} />}
-                title={<span className={p.active ? '' : 'text-muted-foreground'}>{p.name}{!p.active && ' (hidden)'}</span>}
-                sub={`${packsLabel(p.packs, cur)}${p.stockQty != null ? ` · ${p.stockQty} in stock` : ''}`}
-              />
-            ))}
-          </List>
-        )}
-      </Page>
-      {list.length > 0 && <Fab label="Product" icon={<Plus size={20} />} onClick={() => nav.push({ name: 'product' })} />}
-    </>
+        </div>
+      ) : (
+        <>
+          <StatCards
+            items={[
+              { label: 'On the website', value: String(all.length - hidden.length), tone: 'primary' },
+              { label: 'Hidden', value: String(hidden.length) },
+              { label: 'Kept in stock', value: String(all.filter((p) => p.stockQty != null).length) },
+            ]}
+          />
+          <AlertBox title="Not for sale yet" lines={noPrice.map((p) => <><b>{p.name}</b>: add a pack price</>)} />
+          <Toolbar search={<SearchBox value={q} onChange={setQ} placeholder="Search size or name…" />} layout={layout} onLayout={setLayout}>
+            <Chips value={ply} onChange={setPly} options={[{ value: 'all', label: 'All', count: all.length }, ...plies.map((x) => ({ value: String(x), label: `${x} ply`, count: all.filter((p) => p.ply === x).length }))]} />
+          </Toolbar>
+          {list.length === 0 ? (
+            <NoMatch text="No products match." />
+          ) : layout === 'tiles' ? (
+            <TileGrid>
+              {list.map((p) => {
+                const per = perBoxPrice(p);
+                return (
+                  <Tile
+                    key={p.id}
+                    onClick={() => nav.push({ name: 'product', id: p.id })}
+                    badge={size(p)}
+                    flag={!p.active ? 'Hidden' : p.stockQty != null ? (p.stockQty > 0 ? 'In stock' : 'Out') : undefined}
+                    flagTone={!p.active ? 'muted' : p.stockQty != null && p.stockQty <= 0 ? 'bad' : 'good'}
+                    big={per > 0 ? money(per, cur) : '—'}
+                    unit="/ box"
+                    left={`${p.ply} ply`}
+                    right={p.stockQty != null ? `${num(Math.max(0, p.stockQty), 0)} pcs` : 'made to order'}
+                    caption={packsLabel(p.packs, cur)}
+                    dim={!p.active}
+                  />
+                );
+              })}
+            </TileGrid>
+          ) : (
+            <List>
+              {list.map((p) => (
+                <Row
+                  key={p.id}
+                  onClick={() => nav.push({ name: 'product', id: p.id })}
+                  icon={<Package size={20} className={p.active ? 'text-primary' : 'text-muted-foreground'} />}
+                  title={<span className={p.active ? '' : 'text-muted-foreground'}>{p.name}{!p.active && ' (hidden)'}</span>}
+                  sub={`${packsLabel(p.packs, cur)}${p.stockQty != null ? ` · ${p.stockQty} in stock` : ''}`}
+                />
+              ))}
+            </List>
+          )}
+        </>
+      )}
+    </ListPage>
   );
 }
 

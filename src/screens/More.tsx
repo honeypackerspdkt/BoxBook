@@ -1,15 +1,17 @@
+import { useState } from 'react';
 import { Box, CircleHelp, Container, Cloud, DatabaseBackup, Globe, Inbox as InboxIcon, Layers, Package, Plus, Settings2, UserCog } from 'lucide-react';
 import { setupProblems } from '@honeypackers/box-core/pricing';
 import { usePerms, useStore } from '../store';
 import { useNav } from '../nav';
-import { specLabel } from '@honeypackers/box-core/calc';
+import { calcBox, estimate, specLabel } from '@honeypackers/box-core/calc';
 import { stockAlerts, stockByGrade } from '../lib/stock';
 import { boxStockSummary } from '../lib/box-stock';
-import { timeAgo } from '../lib/format';
+import { money, num, timeAgo } from '../lib/format';
 import type { AppData } from '../lib/types';
 import type { CloudStatus } from '../lib/cloud/controller';
 import { inbox } from '../lib/inbox';
-import { Empty, Header, List, Page, Row, Section, Fab } from '../ui';
+import { Empty, Header, List, Page, Row, SearchBox, Section } from '../ui';
+import { ListPage, NoMatch, StatCards, Tile, TileGrid, Toolbar, useLayout } from '../list-page';
 
 function webSummary(w: AppData['web']): string {
   const left = setupProblems(w.rules).length;
@@ -193,38 +195,78 @@ export function More() {
 export function BoxesList() {
   const { data } = useStore();
   const nav = useNav();
+  const [q, setQ] = useState('');
+  const [layout, setLayout] = useLayout('boxes', 'tiles');
+  const cur = data.settings.currency;
   const customers = new Map(data.customers.map((c) => [c.id, c]));
-  const list = [...data.boxes].sort((a, b) => a.name.localeCompare(b.name));
+  const all = [...data.boxes].sort((a, b) => a.name.localeCompare(b.name));
+  const s = q.trim().toLowerCase();
+  const list = all.filter((b) => !s || [b.name, customers.get(b.customerId || '')?.name, specLabel(b.spec)].some((x) => x?.toLowerCase().includes(s)));
+  const add = { label: 'New box', onClick: () => nav.push({ name: 'box' }) };
+
   return (
-    <>
-      <Header title="Saved boxes" subtitle={`${list.length} saved`} back />
-      <Page>
-        {list.length === 0 ? (
+    <ListPage title="Saved boxes" subtitle={`${all.length} saved`} back add={all.length > 0 && add}>
+      {all.length === 0 ? (
+        <div className="card">
           <Empty
             icon={<Box size={28} />}
             title="No saved boxes"
             text="Save a box from the calculator to reuse its size, paper and price in orders."
             action={
-              <button className="btn-primary" onClick={() => nav.push({ name: 'box' })}>
+              <button className="btn-primary" onClick={add.onClick}>
                 <Plus size={18} /> New box
               </button>
             }
           />
-        ) : (
-          <List>
-            {list.map((b) => (
-              <Row
-                key={b.id}
-                onClick={() => nav.push({ name: 'box', id: b.id })}
-                icon={<Box size={20} className="text-primary" />}
-                title={b.name}
-                sub={[specLabel(b.spec), customers.get(b.customerId || '')?.name].filter(Boolean).join(' · ')}
-              />
-            ))}
-          </List>
-        )}
-      </Page>
-      {list.length > 0 && <Fab label="Box" icon={<Plus size={20} />} onClick={() => nav.push({ name: 'box' })} />}
-    </>
+        </div>
+      ) : (
+        <>
+          <StatCards
+            items={[
+              { label: 'Saved', value: String(all.length), tone: 'primary' },
+              { label: 'For a customer', value: String(all.filter((b) => b.customerId).length) },
+              { label: '3 / 5 / 7 ply', value: [3, 5, 7].map((n) => all.filter((b) => b.spec.ply === n).length).join(' / ') },
+            ]}
+          />
+          <Toolbar search={<SearchBox value={q} onChange={setQ} placeholder="Search box, customer, size…" />} layout={layout} onLayout={setLayout} />
+          {list.length === 0 ? (
+            <NoMatch text="No boxes match." />
+          ) : layout === 'tiles' ? (
+            <TileGrid>
+              {list.map((b) => {
+                const r = calcBox(b.spec);
+                const price = estimate(r.paperCost, b.pricing, 1).unitPrice;
+                return (
+                  <Tile
+                    key={b.id}
+                    onClick={() => nav.push({ name: 'box', id: b.id })}
+                    badge={`${num(b.spec.length, 0)}×${num(b.spec.width, 0)}×${num(b.spec.height, 0)} mm`}
+                    flag={`${b.spec.ply} ply`}
+                    flagTone="muted"
+                    big={price > 0 ? money(price, cur) : '—'}
+                    unit="/ box"
+                    left={`BS ${num(r.bs, 1)}`}
+                    right={`${num(r.weight, 0)} g`}
+                    caption={[b.name, customers.get(b.customerId || '')?.name].filter(Boolean).join(' · ')}
+                  />
+                );
+              })}
+            </TileGrid>
+          ) : (
+            <List>
+              {list.map((b) => (
+                <Row
+                  key={b.id}
+                  onClick={() => nav.push({ name: 'box', id: b.id })}
+                  icon={<Box size={20} className="text-primary" />}
+                  title={b.name}
+                  sub={[specLabel(b.spec), customers.get(b.customerId || '')?.name].filter(Boolean).join(' · ')}
+                />
+              ))}
+            </List>
+          )}
+        </>
+      )}
+    </ListPage>
   );
 }

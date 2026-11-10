@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
-import { Box, MessageCircle, Pencil, Phone, Plus, Trash2, UserPlus, Users } from 'lucide-react';
+import { Box, MessageCircle, Pencil, Phone, Trash2, UserPlus, Users } from 'lucide-react';
 import { useStore } from '../store';
 import { useNav } from '../nav';
 import { orderTotals, specLabel } from '@honeypackers/box-core/calc';
 import { fmtDate, initials, money, money0, telHref, waHref } from '../lib/format';
 import { GST_STATES, stateFromGstin } from '@honeypackers/box-core/gst';
 import type { Customer } from '../lib/types';
-import { Avatar, Confirm, Empty, Fab, Field, Header, IconBtn, List, Page, Row, SearchBox, Section, StatusChip } from '../ui';
+import { Avatar, Confirm, Empty, Field, Header, IconBtn, List, Page, Row, SearchBox, Section, StatusChip } from '../ui';
+import { AlertBox, Chips, ListPage, NoMatch, StatCards, Tile, TileGrid, Toolbar, useLayout } from '../list-page';
 
 export function useCustomerStats() {
   const { data } = useStore();
@@ -25,71 +26,130 @@ export function useCustomerStats() {
   }, [data.orders]);
 }
 
+type CustFilter = 'all' | 'due' | 'web';
+
 export function CustomersList() {
   const { data } = useStore();
   const nav = useNav();
   const [q, setQ] = useState('');
+  const [f, setF] = useState<CustFilter>('all');
+  const [layout, setLayout] = useLayout('customers', 'list');
   const stats = useCustomerStats();
   const cur = data.settings.currency;
+  const due = (id: string) => stats.get(id)?.balance ?? 0;
+  const webIds = useMemo(() => new Set(data.orders.filter((o) => o.source === 'web').map((o) => o.customerId)), [data.orders]);
+  const isWeb = (c: Customer) => webIds.has(c.id);
 
   const list = useMemo(() => {
     const s = q.trim().toLowerCase();
     return data.customers
-      .filter((c) => !s || [c.name, c.company, c.phone, c.gstin].some((f) => f?.toLowerCase().includes(s)))
+      .filter((c) => (f === 'due' ? due(c.id) > 0.5 : f === 'web' ? isWeb(c) : true))
+      .filter((c) => !s || [c.name, c.company, c.phone, c.gstin].some((x) => x?.toLowerCase().includes(s)))
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [data.customers, q]);
+  }, [data.customers, q, f, stats, webIds]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const withDue = data.customers.filter((c) => due(c.id) > 0.5).sort((a, b) => due(b.id) - due(a.id));
+  const totalDue = withDue.reduce((n, c) => n + due(c.id), 0);
+  const monthStart = new Date().toISOString().slice(0, 7);
+  const activeThisMonth = data.customers.filter((c) => (stats.get(c.id)?.last || '').startsWith(monthStart)).length;
+  const add = { label: 'Add customer', onClick: () => nav.push({ name: 'customerEdit' }) };
 
   return (
-    <>
-      <Header title="Customers" subtitle={`${data.customers.length} total`} large />
-      <Page>
-        {data.customers.length > 0 && (
-          <div className="mb-4">
-            <SearchBox value={q} onChange={setQ} placeholder="Search name, company, phone…" />
-          </div>
-        )}
-        {data.customers.length === 0 ? (
+    <ListPage title="Customers" subtitle={`${data.customers.length} total`} large add={data.customers.length > 0 && add}>
+      {data.customers.length === 0 ? (
+        <div className="card">
           <Empty
             icon={<Users size={28} />}
             title="No customers yet"
             text="Add the companies you make boxes for. Their orders, dues and saved box designs stay together."
             action={
-              <button className="btn-primary" onClick={() => nav.push({ name: 'customerEdit' })}>
+              <button className="btn-primary" onClick={add.onClick}>
                 <UserPlus size={18} /> Add customer
               </button>
             }
           />
-        ) : list.length === 0 ? (
-          <p className="py-10 text-center text-muted-foreground">No customers match “{q}”.</p>
-        ) : (
-          <List>
-            {list.map((c, i) => {
-              const s = stats.get(c.id);
-              return (
-                <Row
-                  key={c.id}
-                  onClick={() => nav.push({ name: 'customer', id: c.id })}
-                  icon={<Avatar text={initials(c.name)} tone={i} />}
-                  title={c.name}
-                  sub={[c.company, c.phone].filter(Boolean).join(' · ') || 'No contact details'}
-                  right={
-                    s && s.balance > 0.5 ? (
-                      <span className="tnum text-right text-[13px] font-semibold text-bad">
-                        {money0(s.balance, cur)}
-                        <span className="block text-[11px] font-normal text-muted-foreground">due</span>
-                      </span>
-                    ) : s ? (
-                      <span className="text-[12px] text-muted-foreground">{s.orders} orders</span>
-                    ) : undefined
-                  }
-                />
-              );
-            })}
-          </List>
-        )}
-      </Page>
-      {data.customers.length > 0 && <Fab label="Customer" icon={<Plus size={20} />} onClick={() => nav.push({ name: 'customerEdit' })} />}
-    </>
+        </div>
+      ) : (
+        <>
+          <StatCards
+            items={[
+              { label: 'Customers', value: String(data.customers.length), tone: 'primary' },
+              { label: 'Money due', value: money0(totalDue, cur), tone: totalDue > 0.5 ? 'bad' : undefined },
+              { label: 'Ordered this month', value: String(activeThisMonth) },
+            ]}
+          />
+          <AlertBox
+            title="Payments to collect"
+            tone="warn"
+            lines={withDue.slice(0, 4).map((c) => (
+              <>
+                <b>{c.name}</b>: {money0(due(c.id), cur)} due
+              </>
+            ))}
+          />
+          <Toolbar search={<SearchBox value={q} onChange={setQ} placeholder="Search name, company, phone…" />} layout={layout} onLayout={setLayout}>
+            <Chips
+              value={f}
+              onChange={setF}
+              options={[
+                { value: 'all', label: 'All', count: data.customers.length },
+                { value: 'due', label: 'With dues', count: withDue.length },
+                { value: 'web', label: 'From website', count: data.customers.filter(isWeb).length },
+              ]}
+            />
+          </Toolbar>
+          {list.length === 0 ? (
+            <NoMatch text="No customers match." />
+          ) : layout === 'tiles' ? (
+            <TileGrid>
+              {list.map((c) => {
+                const st = stats.get(c.id);
+                const d = due(c.id);
+                return (
+                  <Tile
+                    key={c.id}
+                    onClick={() => nav.push({ name: 'customer', id: c.id })}
+                    badge={initials(c.name)}
+                    flag={d > 0.5 ? 'Due' : isWeb(c) ? 'Website' : undefined}
+                    flagTone={d > 0.5 ? 'bad' : 'muted'}
+                    big={d > 0.5 ? money0(d, cur) : String(st?.orders ?? 0)}
+                    unit={d > 0.5 ? undefined : st?.orders === 1 ? 'order' : 'orders'}
+                    left={c.phone || c.company || 'No contact'}
+                    right={st?.last ? fmtDate(st.last) : ''}
+                    caption={c.name}
+                  />
+                );
+              })}
+            </TileGrid>
+          ) : (
+            <List>
+              {list.map((c, i) => {
+                const st = stats.get(c.id);
+                return (
+                  <Row
+                    key={c.id}
+                    onClick={() => nav.push({ name: 'customer', id: c.id })}
+                    icon={<Avatar text={initials(c.name)} tone={i} />}
+                    title={c.name}
+                    sub={[c.company, c.phone].filter(Boolean).join(' · ') || 'No contact details'}
+                    right={
+                      st && st.balance > 0.5 ? (
+                        <span className="tnum text-right text-[13px] font-semibold text-bad">
+                          {money0(st.balance, cur)}
+                          <span className="block text-[11px] font-normal text-muted-foreground">due</span>
+                        </span>
+                      ) : st ? (
+                        <span className="text-[12px] text-muted-foreground">{st.orders} orders</span>
+                      ) : undefined
+                    }
+                  />
+                );
+              })}
+            </List>
+          )}
+        </>
+      )}
+    </ListPage>
   );
 }
 

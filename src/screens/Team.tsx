@@ -4,7 +4,9 @@ import { useStore, usePerms } from '../store';
 import { timeAgo } from '../lib/format';
 import { ROLE_INFO, ROLES, type Role } from '../lib/roles';
 import type { Member, PendingInvite } from '../lib/cloud/supabase-api';
-import { Avatar, Confirm, Field, Header, List, Page, Row, Section, Segmented, Sheet, Toggle } from '../ui';
+import { Avatar, Confirm, Field, Header, List, Page, Row, Section, Segmented, Toggle } from '../ui';
+import { useNav } from '../nav';
+import { ListPage, StatCards } from '../list-page';
 
 /** Is this member the person using this phone? (signed in by e-mail or by mobile number) */
 const isSelf = (m: Member, me: string) => !!me && (m.email === me || (!!m.phone && m.phone.replace(/\D/g, '').slice(-10) === me.replace(/\D/g, '').slice(-10)));
@@ -21,8 +23,7 @@ export function Team() {
   const [invites, setInvites] = useState<PendingInvite[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [inviteOpen, setInviteOpen] = useState(false);
-  const [edit, setEdit] = useState<Member | null>(null);
+  const nav = useNav();
   const [revoke, setRevoke] = useState<PendingInvite | null>(null);
 
   const load = useCallback(async () => {
@@ -53,86 +54,72 @@ export function Team() {
     );
   }
 
+  const activeCount = members.filter((m) => m.active).length;
   return (
-    <>
-      <Header
-        title="Staff"
-        subtitle={cloudStatus.orgName}
-        back
-        actions={
-          <button aria-label="Refresh" className="grid h-10 w-10 place-items-center rounded-full active:bg-muted" onClick={() => void load()}>
-            <RefreshCw size={19} className={loading ? 'animate-spin' : ''} />
-          </button>
-        }
+    <ListPage
+      title="Staff"
+      subtitle={cloudStatus.orgName}
+      back
+      add={{ label: 'Invite', onClick: () => nav.push({ name: 'invite' }) }}
+      actions={
+        <button aria-label="Refresh" className="grid h-10 w-10 place-items-center rounded-full active:bg-muted" onClick={() => void load()}>
+          <RefreshCw size={19} className={loading ? 'animate-spin' : ''} />
+        </button>
+      }
+    >
+      {error && <p className="mb-4 rounded-xl bg-warn/10 p-3 text-[13.5px]">{error.match(/fetch|network/i) ? 'No internet connection. Staff can be managed when you are online.' : error}</p>}
+      <StatCards
+        items={[
+          { label: 'People', value: String(members.length), tone: 'primary' },
+          { label: 'Active', value: String(activeCount) },
+          { label: 'Invited', value: String(invites.length), tone: invites.length ? 'warn' : undefined },
+        ]}
       />
-      <Page>
-        {error && <p className="mb-4 rounded-xl bg-warn/10 p-3 text-[13.5px]">{error.match(/fetch|network/i) ? 'No internet connection. Staff can be managed when you are online.' : error}</p>}
 
-        <Section title="People">
+      <Section title="People">
+        <List>
+          {members.map((m) => (
+            <Row
+              key={m.id}
+              onClick={() => nav.push({ name: 'member', id: m.id })}
+              icon={<Avatar text={m.name || contactOf(m)} />}
+              title={
+                <span className={m.active ? '' : 'text-muted-foreground line-through'}>
+                  {m.name || contactOf(m)}
+                  {isSelf(m, cloudStatus.email) && <span className="font-normal text-muted-foreground"> (you)</span>}
+                </span>
+              }
+              sub={`${label(m.role)}${m.active ? '' : ' · switched off'}${m.name && contactOf(m) ? ` · ${contactOf(m)}` : ''}`}
+            />
+          ))}
+          {!members.length && !loading && <p className="p-4 text-[14px] text-muted-foreground">No one yet.</p>}
+        </List>
+      </Section>
+
+      {invites.length > 0 && (
+        <Section title="Invited, not joined yet">
           <List>
-            {members.map((m) => (
+            {invites.map((i) => (
               <Row
-                key={m.id}
-                onClick={() => setEdit(m)}
-                icon={<Avatar text={m.name || contactOf(m)} />}
-                title={
-                  <span className={m.active ? '' : 'text-muted-foreground line-through'}>
-                    {m.name || contactOf(m)}
-                    {isSelf(m, cloudStatus.email) && <span className="font-normal text-muted-foreground"> (you)</span>}
-                  </span>
+                key={i.id}
+                icon={<Mail size={20} className="text-primary" />}
+                title={i.name || i.email || `+91 ${i.phone}`}
+                sub={`${label(i.role)} · ${i.email || `+91 ${i.phone}`} · invited ${timeAgo(i.createdAt)}`}
+                chevron={false}
+                right={
+                  <button aria-label={`Cancel invitation for ${i.email || i.phone}`} className="grid h-9 w-9 place-items-center rounded-full text-muted-foreground active:bg-muted" onClick={() => setRevoke(i)}>
+                    <X size={18} />
+                  </button>
                 }
-                sub={`${label(m.role)}${m.active ? '' : ' · switched off'}${m.name && contactOf(m) ? ` · ${contactOf(m)}` : ''}`}
               />
             ))}
-            {!members.length && !loading && <p className="p-4 text-[14px] text-muted-foreground">No one yet.</p>}
           </List>
         </Section>
+      )}
 
-        {invites.length > 0 && (
-          <Section title="Invited, not joined yet">
-            <List>
-              {invites.map((i) => (
-                <Row
-                  key={i.id}
-                  icon={<Mail size={20} className="text-primary" />}
-                  title={i.name || i.email || `+91 ${i.phone}`}
-                  sub={`${label(i.role)} · ${i.email || `+91 ${i.phone}`} · invited ${timeAgo(i.createdAt)}`}
-                  chevron={false}
-                  right={
-                    <button aria-label={`Cancel invitation for ${i.email || i.phone}`} className="grid h-9 w-9 place-items-center rounded-full text-muted-foreground active:bg-muted" onClick={() => setRevoke(i)}>
-                      <X size={18} />
-                    </button>
-                  }
-                />
-              ))}
-            </List>
-          </Section>
-        )}
-
-        <button className="btn-primary w-full" onClick={() => setInviteOpen(true)}>
-          <UserPlus size={18} /> Invite someone
-        </button>
-        <p className="mt-3 px-1 text-[12.5px] text-muted-foreground">
-          They open BoxBook (the app, or the web version) and sign in under More → Cloud sync with the e-mail (or mobile number) you invited. They then join your business with the role you chose.
-        </p>
-      </Page>
-
-      <InviteSheet open={inviteOpen} onClose={() => setInviteOpen(false)} onDone={() => (setInviteOpen(false), void load())} />
-      <MemberSheet
-        member={edit}
-        isMe={!!edit && isSelf(edit, cloudStatus.email)}
-        onClose={() => setEdit(null)}
-        onSave={async (patch) => {
-          try {
-            await cloud.updateMember(edit!.id, patch);
-            toast('Saved');
-            setEdit(null);
-            void load();
-          } catch (e) {
-            toast(errText(e));
-          }
-        }}
-      />
+      <p className="mt-3 px-1 text-[12.5px] text-muted-foreground">
+        They open BoxBook (the app, or the web version) and sign in under More → Cloud sync with the e-mail (or mobile number) you invited. They then join your business with the role you chose.
+      </p>
       <Confirm
         open={!!revoke}
         onClose={() => setRevoke(null)}
@@ -146,7 +133,7 @@ export function Team() {
             .catch((e) => toast(errText(e)))
         }
       />
-    </>
+    </ListPage>
   );
 }
 
@@ -166,8 +153,10 @@ function RolePicker({ value, onChange }: { value: string; onChange: (r: Role) =>
   );
 }
 
-function InviteSheet({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: () => void }) {
+/** Invite someone: a full page (opened by the + button on Staff). */
+export function TeamInvite() {
   const { cloud, toast } = useStore();
+  const nav = useNav();
   const [by, setBy] = useState<'mobile' | 'email'>('mobile');
   const [email, setEmail] = useState('');
   const [mobile, setMobile] = useState('');
@@ -185,7 +174,7 @@ function InviteSheet({ open, onClose, onDone }: { open: boolean; onClose: () => 
       setEmail('');
       setMobile('');
       setName('');
-      onDone();
+      nav.back();
     } catch (e) {
       toast(errText(e));
     } finally {
@@ -193,7 +182,9 @@ function InviteSheet({ open, onClose, onDone }: { open: boolean; onClose: () => 
     }
   };
   return (
-    <Sheet open={open} onClose={onClose} title="Invite someone">
+    <>
+      <Header title="Invite someone" back />
+      <Page>
       <div className="space-y-4">
         <Segmented<'mobile' | 'email'> value={by} onChange={setBy} options={[{ value: 'mobile', label: 'WhatsApp number' }, { value: 'email', label: 'E-mail' }]} />
         {by === 'mobile' ? (
@@ -216,15 +207,48 @@ function InviteSheet({ open, onClose, onDone }: { open: boolean; onClose: () => 
           <UserPlus size={18} /> Invite
         </button>
       </div>
-    </Sheet>
+      </Page>
+    </>
   );
 }
 
-function MemberSheet({ member, isMe, onClose, onSave }: { member: Member | null; isMe: boolean; onClose: () => void; onSave: (patch: { role?: string; is_active?: boolean }) => Promise<void> }) {
+/** One staff member: role and on/off, as a full page. */
+export function TeamMember({ id }: { id: string }) {
+  const { cloud, cloudStatus, toast } = useStore();
+  const nav = useNav();
+  const [member, setMember] = useState<Member | null | undefined>(undefined);
+  useEffect(() => {
+    cloud
+      .team()
+      .then((t) => setMember(t.members.find((m) => m.id === id) ?? null))
+      .catch(() => setMember(null));
+  }, [cloud, id]);
+  const title = member ? member.name || contactOf(member) || 'Staff member' : 'Staff member';
   return (
-    <Sheet open={!!member} onClose={onClose} title={member?.name || (member && contactOf(member)) || 'Staff member'}>
-      {member && <MemberForm key={member.id} member={member} isMe={isMe} onSave={onSave} />}
-    </Sheet>
+    <>
+      <Header title={title} back />
+      <Page>
+        {member === undefined ? (
+          <p className="py-10 text-center text-muted-foreground">Loading…</p>
+        ) : member === null ? (
+          <p className="py-10 text-center text-muted-foreground">This person is no longer in the team.</p>
+        ) : (
+          <MemberForm
+            member={member}
+            isMe={isSelf(member, cloudStatus.email)}
+            onSave={async (patch) => {
+              try {
+                await cloud.updateMember(member.id, patch);
+                toast('Saved');
+                nav.back();
+              } catch (e) {
+                toast(errText(e));
+              }
+            }}
+          />
+        )}
+      </Page>
+    </>
   );
 }
 

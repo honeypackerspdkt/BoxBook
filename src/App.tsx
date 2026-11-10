@@ -16,10 +16,10 @@ import { SettingsPage } from './screens/Settings';
 import { ReelDetail, ReelEdit, StockList } from './screens/Stock';
 import { WebPrices } from './screens/WebPrices';
 import { CloudSync } from './screens/Cloud';
-import { Team } from './screens/Team';
-import { Inbox } from './screens/Inbox';
+import { Team, TeamInvite, TeamMember } from './screens/Team';
+import { EnquiryDetail, Inbox } from './screens/Inbox';
 import { ProductEdit, ProductsList } from './screens/Products';
-import { BoxStock } from './screens/BoxStock';
+import { BoxStock, BoxStockItem } from './screens/BoxStock';
 import { Help } from './screens/Help';
 import { Backup } from './screens/Backup';
 import { DesktopNav } from './DesktopNav';
@@ -78,12 +78,20 @@ function renderRoute(r: Route) {
       return <CloudSync />;
     case 'team':
       return <Team />;
+    case 'member':
+      return <TeamMember id={r.id} />;
+    case 'invite':
+      return <TeamInvite />;
     case 'inbox':
       return <Inbox />;
+    case 'enquiry':
+      return <EnquiryDetail id={r.id} />;
     case 'products':
       return <ProductsList />;
     case 'boxStock':
       return <BoxStock />;
+    case 'boxStockItem':
+      return <BoxStockItem id={r.id} />;
     case 'product':
       return <ProductEdit id={r.id} />;
     case 'help':

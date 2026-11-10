@@ -17,12 +17,16 @@ export type Route =
   | { name: 'settings'; section?: string }
   | { name: 'stock' }
   | { name: 'boxStock' }
+  | { name: 'boxStockItem'; id: string }
   | { name: 'reel'; id: string }
   | { name: 'reelEdit'; id?: string; width?: number; bf?: number; gsm?: number }
   | { name: 'webPrices' }
   | { name: 'cloud' }
   | { name: 'team' }
+  | { name: 'member'; id: string }
+  | { name: 'invite' }
   | { name: 'inbox' }
+  | { name: 'enquiry'; id: string }
   | { name: 'products' }
   | { name: 'product'; id?: string }
   | { name: 'help' };
