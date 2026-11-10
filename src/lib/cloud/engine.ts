@@ -281,6 +281,8 @@ export class SyncEngine {
     const d = this.io.getData();
     if (table === 'customers') return d.customers.find((x) => x.id === id)?.updatedAt;
     if (table === 'boxes') return d.boxes.find((x) => x.id === id)?.updatedAt;
+    if (table === 'reels') return d.reels.find((x) => x.id === id)?.updatedAt;
+    if (table === 'stock_moves') return d.stockMoves.find((x) => x.id === id)?.updatedAt;
     const o = table === 'orders' ? d.orders.find((x) => x.id === id) : d.orders.find((x) => x.items.some((i) => i.id === id) || x.payments.some((p) => p.id === id));
     return o?.updatedAt;
   }

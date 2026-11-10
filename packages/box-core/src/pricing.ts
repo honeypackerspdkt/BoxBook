@@ -322,11 +322,14 @@ export interface PricedCartLine {
   amount: number;
   /** Board weight of all boxes in this line (kg). */
   weightKg: number;
+  /** Boxes that come from stock; the rest (madeToOrder) are made for this order. Products without stock: all made to order. */
+  fromStock: number;
+  madeToOrder: number;
 }
 
 export interface PricedCart {
   lines: PricedCartLine[];
-  /** Lines that could not be priced (product gone / switched off, pack removed, not enough stock). */
+  /** Lines that could not be priced (product gone / switched off, pack removed, silly count). Not enough stock is fine: made to order. */
   problems: { productId: string; message: string }[];
   goods: number;
   weightKg: number;
@@ -356,13 +359,11 @@ export function priceCart(cart: CartLine[], products: Product[]): PricedCart {
       continue;
     }
     const boxes = pack.qty * count;
-    const already = lines.filter((l) => l.product.id === product.id).reduce((n, l) => n + l.boxes, 0);
-    if (product.stockQty != null && already + boxes > product.stockQty) {
-      problems.push({ productId: c.productId, message: `${product.name}: only ${product.stockQty} boxes in stock.` });
-      continue;
-    }
+    const already = lines.filter((l) => l.product.id === product.id).reduce((n, l) => n + l.fromStock, 0);
+    // owner's choice: when stock runs short the rest is made to order (the order is still taken)
+    const fromStock = product.stockQty == null ? 0 : Math.max(0, Math.min(boxes, product.stockQty - already));
     const perBoxKg = Math.round(calcBox(product.spec).weight * 100) / 100_000;
-    lines.push({ product, pack, count, boxes, amount: round2(pack.price * count), weightKg: grams(perBoxKg * boxes) });
+    lines.push({ product, pack, count, boxes, amount: round2(pack.price * count), weightKg: grams(perBoxKg * boxes), fromStock, madeToOrder: boxes - fromStock });
   }
   return {
     lines,

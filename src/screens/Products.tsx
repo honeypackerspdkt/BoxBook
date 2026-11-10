@@ -10,7 +10,7 @@ import { Confirm, Empty, Fab, Field, Header, List, NumInput, Page, Row, Section,
 
 const packsLabel = (packs: ProductPack[], cur: string) => packs.map((k) => `${k.qty} for ${money(k.price, cur)}`).join(' · ') || 'No packs yet';
 
-/** More → Products: standard boxes sold in packs on honeypackers.in. */
+/** More → Products: standard boxes sold in packs on the website. */
 export function ProductsList() {
   const { data } = useStore();
   const nav = useNav();
@@ -64,7 +64,10 @@ export function ProductEdit({ id }: { id?: string }) {
   const [name, setName] = useState(existing?.name || '');
   const [description, setDescription] = useState(existing?.description || '');
   const [packs, setPacks] = useState<ProductPack[]>(existing?.packs.length ? existing.packs : [{ qty: 25, price: 0 }, { qty: 100, price: 0 }]);
+  // the count itself changes only through Box stock (made / sold / correction); here: keep stock or not
   const [stock, setStock] = useState<number | null>(existing?.stockQty ?? null);
+  const [stockMin, setStockMin] = useState<number | null>(existing?.stockMin ?? null);
+  const [madeDays, setMadeDays] = useState(existing?.madeDays || 7);
   const [active, setActive] = useState(existing?.active ?? true);
   const [confirmDel, setConfirmDel] = useState(false);
 
@@ -99,7 +102,9 @@ export function ProductEdit({ id }: { id?: string }) {
       packs: [...validPacks].sort((a, b) => a.qty - b.qty),
       hsn: existing?.hsn || data.settings.defaultHsn || '48191010',
       taxPct: existing?.taxPct ?? data.settings.defaults.taxPct,
-      stockQty: stock == null ? null : Math.max(0, Math.floor(stock)),
+      stockQty: stock == null ? null : Math.max(0, Math.floor(existing?.stockQty ?? 0)),
+      stockMin: stock == null || stockMin == null ? null : Math.max(0, Math.floor(stockMin)),
+      madeDays: Math.max(1, Math.floor(madeDays || 7)),
       photos: existing?.photos || [],
       active,
       sort: existing?.sort ?? data.products.length,
@@ -183,12 +188,25 @@ export function ProductEdit({ id }: { id?: string }) {
             <Section title="On the website">
               <div className="card space-y-3 p-4">
                 <Toggle checked={active} onChange={setActive} label="Show on the website" />
-                <Toggle checked={stock != null} onChange={(on) => setStock(on ? (existing?.stockQty ?? 0) : null)} label="Limited stock" desc={stock == null ? 'Made to order: any quantity can be bought' : 'Buyers cannot order more boxes than you have'} />
+                <Toggle checked={stock != null} onChange={(on) => setStock(on ? (existing?.stockQty ?? 0) : null)} label="Keep ready-made stock" desc={stock == null ? 'Made to order: every order is made fresh' : 'Website orders take boxes from stock; when it runs out they are made to order'} />
                 {stock != null && (
-                  <Field label="Boxes in stock">
-                    <NumInput value={stock} onValue={(v) => setStock(Math.floor(v))} suffix="pcs" />
-                  </Field>
+                  <>
+                    <div className="flex items-center justify-between rounded-xl bg-muted/60 px-3 py-2.5 text-[14px]">
+                      <span>In stock: <b className="tnum">{existing?.stockQty ?? 0}</b> pcs</span>
+                      {existing && (
+                        <button type="button" className="font-semibold text-primary" onClick={() => nav.push({ name: 'boxStock' })}>
+                          Box stock →
+                        </button>
+                      )}
+                    </div>
+                    <Field label="Low-stock alert at" hint="Empty = no alert">
+                      <NumInput value={stockMin ?? 0} onValue={(v) => setStockMin(v > 0 ? Math.floor(v) : null)} suffix="pcs" />
+                    </Field>
+                  </>
                 )}
+                <Field label="Made to order in" hint="Shown on the website when there is no stock">
+                  <NumInput value={madeDays} onValue={(v) => setMadeDays(Math.max(1, Math.floor(v)))} suffix="days" />
+                </Field>
               </div>
             </Section>
 

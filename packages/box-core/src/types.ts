@@ -138,8 +138,12 @@ export interface Product {
   packs: ProductPack[];
   hsn: string;
   taxPct: number;
-  /** Boxes in stock; null = made to order. */
+  /** Boxes in stock; null = made to order. Changed through box stock moves (made / sold / returned / correction). */
   stockQty: number | null;
+  /** Low-stock alert level in boxes (admin); null/undefined = no alert. */
+  stockMin?: number | null;
+  /** Days to make it when out of stock (website shows "made to order, about N days"). */
+  madeDays?: number;
   photos: string[];
   active: boolean;
   sort: number;
@@ -171,6 +175,55 @@ export interface CompanySettings {
   defaultUnit: string;
   currency: string;
   defaults: Pricing;
+  /** Extra paper to plan for beyond the calculated need (start-up, spoilage), percent. */
+  stockWastePct: number;
+  /** Issue paper from the reels automatically when an order is confirmed and enough is in stock. */
+  autoIssue: boolean;
+  /** Reorder levels: minimum kg to keep per grade, keyed `${gsm}-${bf}`. */
+  stockMin: Record<string, number>;
+  /** Reel widths (mm) usually bought; offered when adding a reel and used to group the stock by size. */
+  reelWidths: number[];
+  /** Payment methods offered when recording a payment. */
+  payModes: string[];
+}
+
+/** One paper reel in the godown. Its balance is `weightIn` plus every StockMove against it. */
+export interface Reel {
+  id: string;
+  /** Reel number from the mill's label (or your own running number). */
+  number: string;
+  bf: number;
+  gsm: number;
+  /** Reel width in mm; it must be at least the deckle of the box you cut from it. */
+  width: number;
+  supplier: string;
+  receivedAt: string; // yyyy-mm-dd
+  /** Weight when received, kg. */
+  weightIn: number;
+  /** Purchase rate per kg. */
+  rate: number;
+  note: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** issue = paper used for an order, return = unused paper back to the reel, waste = trim / spoilage, adjust = count correction. */
+export type StockMoveKind = 'issue' | 'return' | 'waste' | 'adjust';
+
+export interface StockMove {
+  id: string;
+  reelId: string;
+  /** ISO date-time. */
+  date: string;
+  kind: StockMoveKind;
+  /** Signed: negative takes paper off the reel, positive puts it back. */
+  kg: number;
+  orderId?: string;
+  /** Kept so the ledger still reads right if the order is deleted later. */
+  orderNo?: string;
+  note: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 /** Printing on a custom box: plain, one ink colour, or multicolour. */

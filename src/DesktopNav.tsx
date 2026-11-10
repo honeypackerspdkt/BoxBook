@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react';
-import { Boxes, Building2, Calculator, CircleHelp, ClipboardList, Cloud, DatabaseBackup, Globe, Home, Inbox as InboxIcon, Package, UserCog, Users } from 'lucide-react';
+import { Boxes, Calculator, Container, CircleHelp, ClipboardList, Cloud, DatabaseBackup, Globe, Home, Inbox as InboxIcon, Layers, Package, Settings as SettingsIcon, UserCog, Users } from 'lucide-react';
 import { usePerms, useStore } from './store';
 import { tabsFor, type Perms } from './lib/roles';
 import { useNav, type Route, type Tab } from './nav';
@@ -21,8 +21,9 @@ const open = (route: Route) => (n: ReturnType<typeof useNav>) => {
 const LIBRARY: Item[] = [
   { key: 'inbox', label: 'Inbox', icon: InboxIcon, go: open({ name: 'inbox' }), show: (p) => p.inbox },
   { key: 'boxes', label: 'Saved boxes', icon: Boxes, go: open({ name: 'boxes' }), show: (p) => p.editOrders },
-  { key: 'company', label: 'Company profile', icon: Building2, go: open({ name: 'company' }), show: (p) => p.ownerSettings },
-  { key: 'business', label: 'Pricing defaults', icon: Calculator, go: open({ name: 'business' }), show: (p) => p.ownerSettings },
+  { key: 'stock', label: 'Paper stock', icon: Layers, go: open({ name: 'stock' }), show: (p) => p.stock },
+  { key: 'boxStock', label: 'Box stock', icon: Container, go: open({ name: 'boxStock' }), show: (p) => p.boxStock },
+  { key: 'settings', label: 'App settings', icon: SettingsIcon, go: open({ name: 'settings' }) },
   { key: 'webPrices', label: 'Web price list', icon: Globe, go: open({ name: 'webPrices' }), show: (p) => p.ownerSettings },
   { key: 'products', label: 'Products', icon: Package, go: open({ name: 'products' }), show: (p) => p.ownerSettings },
   { key: 'cloud', label: 'Cloud sync', icon: Cloud, go: open({ name: 'cloud' }) },
@@ -43,6 +44,9 @@ function activeKey(tab: Tab, top: Route | undefined): string {
       return 'customers';
     case 'box':
       return top.id ? 'boxes' : 'calc';
+    case 'reel':
+    case 'reelEdit':
+      return 'stock';
     case 'product':
       return 'products';
     default:

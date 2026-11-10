@@ -185,22 +185,37 @@ describe('standard products cart', () => {
     expect(c.weightKg).toBe(35.665);
   });
 
-  it('refuses switched-off products, removed packs, silly counts and more than the stock', () => {
+  it('refuses switched-off products, removed packs and silly counts', () => {
     const c = priceCart(
       [
         { productId: 'gone', packQty: 25, count: 1 },
         { productId: 'p1', packQty: 50, count: 1 },
         { productId: 'p1', packQty: 25, count: 0 },
-        { productId: 'p2', packQty: 25, count: 3 },
       ],
-      [product(), product({ id: 'p2', name: 'Small', stockQty: 60 }), product({ id: 'off', active: false })],
+      [product(), product({ id: 'off', active: false })],
     );
     expect(c.lines).toEqual([]);
     expect(c.problems.map((p) => p.message)).toEqual([
       'This box is no longer sold online.',
       '3 ply 300×200×150: this pack size is no longer available.',
       '3 ply 300×200×150: choose between 1 and 1000 packs.',
-      'Small: only 60 boxes in stock.',
+    ]);
+  });
+
+  it('takes what it can from stock and makes the rest to order', () => {
+    const c = priceCart(
+      [
+        { productId: 'p2', packQty: 25, count: 2 },
+        { productId: 'p2', packQty: 100, count: 1 },
+        { productId: 'p1', packQty: 25, count: 1 },
+      ],
+      [product(), product({ id: 'p2', name: 'Small', stockQty: 60 })],
+    );
+    expect(c.problems).toEqual([]);
+    expect(c.lines.map((l) => [l.boxes, l.fromStock, l.madeToOrder])).toEqual([
+      [50, 50, 0],
+      [100, 10, 90],
+      [25, 0, 25],
     ]);
   });
 

@@ -30,6 +30,8 @@ export function emptyData(): AppData {
     customers: [],
     orders: [],
     boxes: [],
+    reels: [],
+    stockMoves: [],
     settings: { ...defaultSettings },
     web: defaultWebShop(),
     enquiries: [],
@@ -50,6 +52,8 @@ export function normalize(raw: unknown): AppData {
     customers: d.customers,
     orders: d.orders.map((o) => ({ ...o, items: o.items || [], payments: o.payments || [] })),
     boxes: Array.isArray(d.boxes) ? d.boxes : [],
+    reels: Array.isArray(d.reels) ? d.reels : [],
+    stockMoves: Array.isArray(d.stockMoves) ? d.stockMoves : [],
     settings: {
       ...defaultSettings,
       ...(d.settings || {}),

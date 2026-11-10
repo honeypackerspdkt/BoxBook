@@ -58,7 +58,7 @@ export function WebPrices() {
 
   return (
     <>
-      <Header title="Web price list" subtitle="Prices and delivery on honeypackers.in" back />
+      <Header title="Web price list" subtitle="Prices and delivery on your website" back />
       <Page>
         <div className={`card mb-6 flex gap-3 p-4 ${problems.length ? 'bg-warn/10' : 'bg-good/10'}`}>
           {problems.length ? <AlertTriangle className="mt-0.5 shrink-0 text-warn" size={20} /> : <CheckCircle2 className="mt-0.5 shrink-0 text-good" size={20} />}

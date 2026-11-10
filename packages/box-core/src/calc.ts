@@ -77,6 +77,17 @@ export function calcBox(spec: BoxSpec): BoxResult {
   };
 }
 
+/** Paper used by one box, layer by layer (grams). Adds up to `calcBox(spec).weight`. */
+export function layerGrams(spec: BoxSpec): { gsm: number; bf: number; grams: number }[] {
+  const r = calcBox(spec);
+  const area = (r.sheets === 2 ? r.cutSize * 2 : r.cutSize) * r.deckleSize; // mm²
+  return effectiveLayers(spec).map((l, i) => ({
+    gsm: l.gsm || 0,
+    bf: l.bf || 0,
+    grams: (area * (l.gsm || 0) * (isFlute(i) ? FLUTE_FACTOR : 1)) / 1_000_000,
+  }));
+}
+
 export interface Estimate {
   paperCost: number;
   overhead: number;

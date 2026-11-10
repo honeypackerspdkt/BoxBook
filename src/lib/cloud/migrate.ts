@@ -28,6 +28,8 @@ export function withUuidIds(d: AppData): { data: AppData; changed: number } {
       items: o.items.map((i) => ({ ...i, id: conv(i.id)!, boxId: conv(i.boxId) })),
       payments: o.payments.map((p) => ({ ...p, id: conv(p.id)! })),
     })),
+    reels: (d.reels || []).map((r) => ({ ...r, id: conv(r.id)! })),
+    stockMoves: (d.stockMoves || []).map((m) => ({ ...m, id: conv(m.id)!, reelId: conv(m.reelId)!, orderId: conv(m.orderId) })),
     web: { ...d.web, zones: d.web.zones.map((z) => ({ ...z, id: conv(z.id || uid()) })) },
   };
   return { data, changed: map.size };

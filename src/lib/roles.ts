@@ -25,9 +25,17 @@ export interface Perms {
   team: boolean;
   /** Website orders and enquiries inbox. */
   inbox: boolean;
+  /** Paper reels: stock, issuing paper to orders (reel rates are costs, so not for Production / Dispatch). */
+  stock: boolean;
+  /** Ready-made box stock: see it and add boxes made (Production too). */
+  boxStock: boolean;
+  /** Correct the box count (office roles; database function box_stock_change). */
+  boxStockCorrect: boolean;
 }
 
-const ALL: Perms = { money: true, customers: true, editOrders: true, ownerSettings: true, team: true, inbox: true };
+const ALL: Perms = { money: true, customers: true, editOrders: true, ownerSettings: true, team: true, inbox: true, stock: true, boxStock: true, boxStockCorrect: true };
+
+const NONE: Perms = { money: false, customers: false, editOrders: false, ownerSettings: false, team: false, inbox: false, stock: false, boxStock: false, boxStockCorrect: false };
 
 export function perms(role: string): Perms {
   switch (role as Role) {
@@ -37,10 +45,10 @@ export function perms(role: string): Perms {
     case 'Accounts':
       return { ...ALL, ownerSettings: false, team: false };
     case 'Production':
+      return { ...NONE, boxStock: true };
     case 'Dispatch':
-      return { money: false, customers: false, editOrders: false, ownerSettings: false, team: false, inbox: false };
     default:
-      return { money: false, customers: false, editOrders: false, ownerSettings: false, team: false, inbox: false };
+      return NONE;
   }
 }
 

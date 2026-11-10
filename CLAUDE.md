@@ -201,3 +201,12 @@ One codebase → Android + iOS via **Capacitor 7 + React 19 + Vite 7 + TypeScrip
    For the website add a repo variable `GOOGLE_WEB_CLIENT_ID` (Settings → Secrets and variables → Actions → Variables).
 5. `npm run drive:native` (registers the redirect scheme in `AndroidManifest.xml` / `Info.plist`; idempotent), then `npm run build && npx cap sync`.
 - Without ids the Drive card says "Not set up in this build" and nothing else changes.
+
+## Synced from the Honey Packers admin (10 Nov 2026)
+`honeypackers-web/admin` started as a copy of this app; on 10 Nov 2026 its newer work was copied back here: paper reel stock
+(`screens/Stock.tsx`, `lib/stock.ts`, migration 12), App settings (`screens/Settings.tsx`, replaces Company), swipe back,
+ready-made box stock (`screens/BoxStock.tsx`, `lib/box-stock.ts`, migration 13), sign-in by WhatsApp or e-mail
+(`supabase/functions/send-otp-whatsapp`, migration 11), roles for stock, and box-core updates (made to order when stock runs short).
+Left out on purpose (Honey Packers only): the sign-in-only `AdminGate` and migration 10 (one business per database). BoxBook stays
+multi-business and works offline without an account; it gets its OWN Supabase project, never Honey Packers' (owner's decision).
+Backup files and the Drive folder keep the BoxBook names. Texts say "your website" instead of honeypackers.in.

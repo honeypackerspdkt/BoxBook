@@ -1,5 +1,5 @@
 import type { WebShop } from '@honeypackers/box-core/pricing';
-import type { CompanySettings, Customer, Order, Product, SavedBox } from '@honeypackers/box-core/types';
+import type { CompanySettings, Customer, Order, Product, Reel, SavedBox, StockMove } from '@honeypackers/box-core/types';
 
 export type * from '@honeypackers/box-core/types';
 export type { WebShop } from '@honeypackers/box-core/pricing';
@@ -40,8 +40,11 @@ export interface AppData {
   customers: Customer[];
   orders: Order[];
   boxes: SavedBox[];
+  /** Paper reels and what was issued from them (synced like orders). */
+  reels: Reel[];
+  stockMoves: StockMove[];
   settings: Settings;
-  /** Web price list for honeypackers.in (owner sets it; synced to Supabase later). Older files load with the defaults. */
+  /** Web price list for the business's website (owner sets it; synced to Supabase later). Older files load with the defaults. */
   web: WebShop;
   /** Website enquiries (cloud sync only; empty otherwise). */
   enquiries: Enquiry[];

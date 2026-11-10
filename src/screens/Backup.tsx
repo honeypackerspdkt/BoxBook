@@ -1,18 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { CloudUpload, DatabaseBackup, FileUp, Info, RotateCcw, Share2, Trash2 } from 'lucide-react';
+import { ChevronRight, CloudUpload, DatabaseBackup, FileUp, Info, RotateCcw, Share2, Trash2 } from 'lucide-react';
 import { useStore } from '../store';
+import { useNav } from '../nav';
 import { isNative } from '../lib/storage';
 import { backupLocationLabel, deleteBackup, exportBackup, listBackups, parseBackupFile, readBackup, shareBackupEntry, type BackupEntry } from '../lib/backup';
 import { fmtDateTime } from '../lib/format';
 import type { AppData } from '../lib/types';
-import { Confirm, Header, List, Page, Row, Section, Segmented, Sheet, Toggle } from '../ui';
+import { Confirm, Header, List, Page, Row, Section, Sheet } from '../ui';
 import { DriveBackup } from './DriveBackup';
 
-const counts = (d: AppData) => `${d.customers.length} customers, ${d.orders.length} orders, ${d.boxes.length} saved boxes${d.settings.businessName ? ' + company profile' : ''}${d.settings.businessLogo ? ' & logo' : ''}`;
+const counts = (d: AppData) => `${d.customers.length} customers, ${d.orders.length} orders, ${d.boxes.length} saved boxes${d.reels?.length ? `, ${d.reels.length} paper reels` : ''}${d.settings.businessName ? ' + company profile' : ''}${d.settings.businessLogo ? ' & logo' : ''}`;
 const kb = (n: number) => (n < 1024 ? `${n} B` : `${Math.round(n / 1024)} KB`);
 
 export function Backup() {
-  const { data, backupNow, replaceAll, updateSettings, toast, cloud } = useStore();
+  const { data, backupNow, replaceAll, toast, cloud } = useStore();
+  const nav = useNav();
   const { settings } = data;
   const fileRef = useRef<HTMLInputElement>(null);
   const [entries, setEntries] = useState<BackupEntry[]>([]);
@@ -95,21 +97,13 @@ export function Backup() {
 
         <DriveBackup busy={busy} run={run} onRestore={(d, source) => setPending({ data: d, source })} />
 
-        <Section title="Automatic backup">
-          <div className="card space-y-4 p-4">
-            <Toggle checked={settings.autoBackup} onChange={(v) => updateSettings({ autoBackup: v })} label="Daily backup" desc="A copy is saved once a day when you open the app." />
-            {settings.autoBackup && (
-              <div>
-                <span className="label">Keep last</span>
-                <Segmented<number>
-                  value={settings.keepBackups}
-                  onChange={(n) => updateSettings({ keepBackups: n })}
-                  options={[7, 14, 30].map((n) => ({ value: n, label: `${n} days` }))}
-                />
-              </div>
-            )}
-          </div>
-        </Section>
+        <button className="mb-6 flex w-full items-center justify-between gap-3 rounded-2xl bg-muted/60 px-4 py-3 text-left" onClick={() => nav.push({ name: 'settings', section: 'backup' })}>
+          <span>
+            <span className="block text-[14.5px] font-semibold">Daily backup: {settings.autoBackup ? `on, keeping ${settings.keepBackups} days` : 'off'}</span>
+            <span className="block text-[12.5px] text-muted-foreground">Change it in App settings</span>
+          </span>
+          <ChevronRight size={18} className="shrink-0 text-muted-foreground" />
+        </button>
 
         <Section title="Backups on this phone">
           {entries.length === 0 ? (

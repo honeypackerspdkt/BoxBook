@@ -458,4 +458,55 @@ do $$ begin
 end $$;
 reset role;
 
+-- ───── paper stock (migration 12): office syncs it, Production and Dispatch do not see it ─────
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000a2', false);   -- Sales
+set role authenticated;
+do $$
+declare r jsonb; p jsonb; org uuid := current_setting('test.org1')::uuid;
+begin
+  r := public.sync_push(jsonb_build_array(jsonb_build_object('table', 'reels', 'row', jsonb_build_object(
+    'id', '00000000-0000-0000-0000-0000000000d1', 'org_id', org, 'rev', 1, 'number', 'R-001', 'bf', 18, 'gsm', 150, 'width', 370,
+    'supplier', 'Mill', 'received_at', '2026-11-10', 'weight_in', 100, 'rate', 42))));
+  assert r -> 0 ->> 'status' = 'ok', 'reel push: ' || r::text;
+  r := public.sync_push(jsonb_build_array(jsonb_build_object('table', 'stock_moves', 'row', jsonb_build_object(
+    'id', '00000000-0000-0000-0000-0000000000c9', 'org_id', org, 'rev', 1, 'reel_id', '00000000-0000-0000-0000-0000000000d1',
+    'date', '2026-11-10T10:00:00Z', 'kind', 'issue', 'kg', -60.5, 'order_no', 'ORD-1', 'note', 'Automatic'))));
+  assert r -> 0 ->> 'status' = 'ok', 'move push: ' || r::text;
+  r := public.sync_push(jsonb_build_array(jsonb_build_object('table', 'reels', 'row', jsonb_build_object(
+    'id', '00000000-0000-0000-0000-0000000000d1', 'org_id', org, 'rev', 7, 'weight_in', 90))));
+  assert r -> 0 ->> 'status' = 'conflict', 'stale rev: ' || r::text;
+  r := public.sync_push(jsonb_build_array(jsonb_build_object('table', 'stock_moves', 'row', jsonb_build_object(
+    'id', '00000000-0000-0000-0000-0000000000c8', 'org_id', org, 'rev', 1, 'reel_id', '00000000-0000-0000-0000-0000000000d1', 'kind', 'steal', 'kg', 1))));
+  assert r -> 0 ->> 'status' = 'error', 'unknown movement kind refused: ' || r::text;
+  p := public.sync_pull(null);
+  assert jsonb_array_length(p -> 'reels') = 1 and jsonb_array_length(p -> 'stock_moves') = 1, 'sales pulls stock';
+  r := public.sync_push(jsonb_build_array(jsonb_build_object('table', 'stock_moves', 'row', jsonb_build_object(
+    'id', '00000000-0000-0000-0000-0000000000c9', 'org_id', org, 'rev', 1, 'deleted_at', now()))));
+  assert r -> 0 ->> 'status' = 'ok' and r -> 0 -> 'row' ->> 'deleted_at' is not null, 'soft delete: ' || r::text;
+end $$;
+reset role;
+
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000a3', false);   -- Production
+set role authenticated;
+do $$
+declare r jsonb; p jsonb; org uuid := current_setting('test.org1')::uuid;
+begin
+  p := public.sync_pull(null);
+  assert jsonb_array_length(p -> 'reels') = 0 and jsonb_array_length(p -> 'stock_moves') = 0, 'production sees no stock';
+  r := public.sync_push(jsonb_build_array(jsonb_build_object('table', 'reels', 'row', jsonb_build_object(
+    'id', '00000000-0000-0000-0000-0000000000d2', 'org_id', org, 'rev', 1, 'number', 'X', 'bf', 1, 'gsm', 1, 'width', 1, 'weight_in', 1))));
+  assert r -> 0 ->> 'status' = 'error', 'production cannot add reels: ' || r::text;
+end $$;
+reset role;
+
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000a1', false);   -- owner: paper rules in settings
+set role authenticated;
+do $$
+begin
+  assert (select stock_waste_pct from org_settings) = 5 and (select auto_issue from org_settings), 'paper settings defaults';
+  update org_settings set stock_min = '{"150-18": 200}', reel_widths = '[1000, 1200]', pay_modes = '["Cash","GPay"]', auto_issue = false;
+  assert (select stock_min ->> '150-18' from org_settings) = '200', 'owner changes the paper rules';
+end $$;
+reset role;
+
 select 'all schema tests passed' as result;

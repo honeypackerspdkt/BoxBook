@@ -30,7 +30,7 @@ export function Inbox() {
 
   return (
     <>
-      <Header title="Inbox" subtitle="From honeypackers.in" back />
+      <Header title="Inbox" subtitle="From your website" back />
       <Page>
         {cloudStatus.phase !== 'ready' && (
           <p className="card mb-5 p-4 text-[14px] text-muted-foreground">Website orders and enquiries arrive here once cloud sync is on (More → Cloud sync).</p>

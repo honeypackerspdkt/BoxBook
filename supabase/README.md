@@ -1,4 +1,4 @@
-# BoxBook / Honey Packers database (Supabase)
+# BoxBook database (Supabase)
 
 Plan: [`docs/online-business-plan.md`](../docs/online-business-plan.md). One Supabase **project per app** inside one shared Supabase organisation.
 
@@ -38,8 +38,9 @@ npm run db:test        # throw-away Postgres 15+; needs initdb/pg_ctl/psql (apt 
 2. Either
    - **SQL editor:** paste and run the four files in `migrations/` in order (01 → 04), or
    - **CLI:** `npx supabase login`, `npx supabase link --project-ref <ref>`, `npx supabase db push`.
-3. Sign-in is by **mobile number + SMS code (MSG91)**, with e-mail code as a fallback. See "SMS codes through MSG91" below.
-   For the e-mail fallback: Auth → Email Templates → "Magic Link": put the code in the e-mail, e.g. `Your BoxBook code: {{ .Token }}`
+3. Sign-in is by **mobile number + code on WhatsApp** (Meta Cloud API), or **e-mail code/link**. See "Codes on WhatsApp" below.
+   E-mail to customers needs a custom SMTP sender (Auth → Emails → SMTP); Supabase's built-in mailer only reaches the project team.
+   For the e-mail fallback: Auth → Email Templates → "Magic Link": put the code in the e-mail, e.g. `Your BoxBook sign-in code: {{ .Token }}`
    (the default template only has a link, which the phone app can't use).
 4. Project settings → API: copy the URL and anon key into the app's `.env.local` (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`), then build.
    The app then shows More → Cloud sync → sign in → "Create and move my data".
@@ -47,10 +48,26 @@ npm run db:test        # throw-away Postgres 15+; needs initdb/pg_ctl/psql (apt 
 5. Staff are invited from the app (More → Staff), which needs no edge function. The hub's invite-user / create-user functions are
    optional; if used, set their `VALID_ROLES` to `["Administrator","Sales","Accounts","Production","Dispatch"]`.
 
-## SMS codes through MSG91
+## Codes on WhatsApp (Meta Cloud API), the one in use
+Supabase creates and checks the 6-digit code; the Edge Function `functions/send-otp-whatsapp` (Auth "Send SMS" hook) only delivers it
+as a WhatsApp **Authentication** template with a copy-code button. No DLT needed. Cost: Meta's per-message authentication rate (INR billing).
+1. **Meta** (business.facebook.com → WhatsApp Manager, currency **INR** at setup): add the business phone number; create an
+   **Authentication** template (e.g. name `signin_code`, language English `en`, "copy code" button) and wait for approval.
+   Note the **Phone number ID**. Create a **System User** with `whatsapp_business_messaging` and generate a permanent **access token**.
+2. **Supabase → Authentication → Sign In / Providers → Phone**: enable it (the hook replaces the SMS provider).
+3. Deploy the function (CLI `npx supabase functions deploy send-otp-whatsapp --no-verify-jwt`, or Dashboard → Edge Functions → paste
+   `index.ts` + `handler.ts`, JWT verification off) and set secrets `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`,
+   `WHATSAPP_TEMPLATE` (e.g. `signin_code`), `WHATSAPP_LANG` (`en`).
+4. **Supabase → Authentication → Hooks → Send SMS hook**: HTTPS, URL `https://<project-ref>.supabase.co/functions/v1/send-otp-whatsapp`,
+   generate the secret and save it as `SEND_SMS_HOOK_SECRET` ('v1,whsec_…').
+5. Test from the website's My orders (WhatsApp → Send code). Problems show in Edge Functions → send-otp-whatsapp → Logs. A number that
+   is not on WhatsApp gets "sign in with e-mail instead".
+- Tests: `npx vitest run supabase/functions` (Meta faked).
+
+## SMS codes through MSG91 (not used; kept for later)
 Supabase creates and checks the 6-digit code; the Edge Function `functions/send-sms-msg91` (Auth "Send SMS" hook) only delivers it with MSG91.
 1. **MSG91** (msg91.com): get the **Auth key**. Create an SMS **template** containing the code variable, e.g.
-   `##otp## is your BoxBook login code. Do not share it. - Honey Packers`, and get it approved. In India SMS needs DLT registration
+   `##otp## is your BoxBook login code. Do not share it.`, and get it approved. In India SMS needs DLT registration
    (principal entity, sender ID/header and the template on a DLT portal); MSG91 guides you through it. Note the **template ID**.
 2. **Supabase → Authentication → Sign In / Providers → Phone**: enable it (the hook replaces the SMS provider, so no Twilio details are needed).
 3. Deploy the function and its secrets (from this repo):

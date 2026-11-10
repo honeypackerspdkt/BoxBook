@@ -21,13 +21,13 @@ import {
 import { useNav } from './nav';
 import type { OrderStatus } from './lib/types';
 
-export function Header({ title, subtitle, back, actions, large }: { title: string; subtitle?: string; back?: boolean; actions?: ReactNode; large?: boolean }) {
+export function Header({ title, subtitle, back, onBack, actions, large }: { title: string; subtitle?: string; back?: boolean; /** Replaces the default back action (e.g. to ask about unsaved changes). */ onBack?: () => void; actions?: ReactNode; large?: boolean }) {
   const nav = useNav();
   return (
     <header className="pt-safe sticky top-0 z-20 border-b border-border/60 bg-background/90 backdrop-blur-xl">
       <div className={`mx-auto flex w-full max-w-2xl items-center gap-2 px-4 lg:max-w-5xl lg:px-8 ${large ? 'h-16' : 'h-14'}`}>
         {back && (
-          <button aria-label="Back" onClick={nav.back} className="-ml-2 grid h-10 w-10 place-items-center rounded-full active:bg-muted">
+          <button aria-label="Back" onClick={onBack ?? nav.back} className="-ml-2 grid h-10 w-10 place-items-center rounded-full active:bg-muted">
             <ChevronLeft size={24} />
           </button>
         )}

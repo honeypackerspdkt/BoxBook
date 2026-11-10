@@ -5,7 +5,7 @@ import { clearSyncState, loadSyncState, saveSyncState } from './state-store';
 import type * as Sb from './supabase-api';
 
 // The Supabase client is large: load it only when cloud sync is set up and used.
-const cloudConfigured = Boolean((import.meta.env.VITE_SUPABASE_URL || '').trim() && (import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim());
+import { cloudConfigured } from './config';
 const load = () => import('./supabase-api');
 const lazyApi = (): CloudApi => {
   const api = async () => (await load()).supabaseApi();

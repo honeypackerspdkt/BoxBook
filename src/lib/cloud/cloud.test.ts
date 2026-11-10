@@ -20,6 +20,8 @@ function sample(): AppData {
         payments: [{ id: 'p1', date: '2026-01-02', amount: 4, mode: 'Cash', note: '' }],
       },
     ],
+    reels: [{ id: 'r1', number: 'R-001', bf: 18, gsm: 150, width: 370, supplier: 'Mill', receivedAt: '2026-11-10', weightIn: 100, rate: 42, note: '', createdAt: '2026-11-10T00:00:00.000Z', updatedAt: '2026-11-10T00:00:00.000Z' }],
+    stockMoves: [{ id: 'm1', reelId: 'r1', date: '2026-11-10T10:00:00.000Z', kind: 'issue', kg: -60.5, orderId: 'o1', orderNo: 'ORD-0001', note: 'Automatic', createdAt: '2026-11-10T10:00:00.000Z', updatedAt: '2026-11-10T10:00:00.000Z' }],
     web: { ...d.web, zones: [{ id: 'z1', name: 'Town', pincodeFrom: 622001, pincodeTo: 622999, mode: 'own', ratePerKg: 4, minCharge: 300, freeAbove: null, days: 1, active: true }] },
   };
 }
@@ -36,12 +38,37 @@ describe('mapping', () => {
     expect(back.orders[0].items.map((i) => i.id)).toEqual(['i1', 'i2']);
   });
 
+  it('reels and stock movements keep their fields', () => {
+    const d = sample();
+    const reel = rowsOf(d).get('reels:r1')!.row;
+    expect(reel).toMatchObject({ number: 'R-001', bf: 18, gsm: 150, width: 370, weight_in: 100, rate: 42, received_at: '2026-11-10' });
+    const move = rowsOf(d).get('stock_moves:m1')!.row;
+    expect(move).toMatchObject({ reel_id: 'r1', kind: 'issue', kg: -60.5, order_id: 'o1', order_no: 'ORD-0001' });
+    const back = applyRow(applyRow({ ...emptyData() }, 'reels', { ...reel, rev: 1, updated_at: '2026-11-10T00:00:00Z' }), 'stock_moves', { ...move, kg: '-60.5000', rev: 1, updated_at: '2026-11-10T10:00:00Z' });
+    expect(back.reels[0]).toMatchObject({ id: 'r1', number: 'R-001', receivedAt: '2026-11-10', weightIn: 100 });
+    expect(back.stockMoves[0]).toMatchObject({ id: 'm1', reelId: 'r1', kind: 'issue', kg: -60.5, orderId: 'o1', orderNo: 'ORD-0001' });
+    // a server-side date-time keeps only the day for a reel
+    expect(applyRow(emptyData(), 'reels', { ...reel, received_at: '2026-11-10T00:00:00+00:00', updated_at: '2026-11-10T00:00:00Z' }).reels[0].receivedAt).toBe('2026-11-10');
+    // deletions
+    expect(applyRow(d, 'stock_moves', { id: 'm1', deleted_at: 'x' }).stockMoves).toEqual([]);
+    expect(applyRow(d, 'reels', { id: 'r1', deleted_at: 'x' }).reels).toEqual([]);
+  });
+
   it('deleted rows remove the record', () => {
     const d = sample();
     expect(applyRow(d, 'payments', { id: 'p1', order_id: 'o1', deleted_at: 'x' }).orders[0].payments).toEqual([]);
     expect(applyRow(d, 'orders', { id: 'o1', deleted_at: 'x' }).orders).toEqual([]);
     expect(applyRow(d, 'delivery_zones', { id: 'z1', deleted_at: 'x' }).web.zones).toEqual([]);
     expect(applyRow(d, 'order_items', { id: 'x', order_id: 'missing', description: 'y' })).toBe(d);
+  });
+
+  it('paper stock rules and payment methods round-trip with the company settings', () => {
+    const s = { ...emptyData().settings, stockWastePct: 3, autoIssue: false, stockMin: { '150-18': 200 }, reelWidths: [1000, 1200], payModes: ['Cash', 'GPay'] };
+    const row = settingsRow(s);
+    expect(row).toMatchObject({ stock_waste_pct: 3, auto_issue: false, stock_min: { '150-18': 200 }, reel_widths: [1000, 1200], pay_modes: ['Cash', 'GPay'] });
+    expect(applySettingsRow(emptyData().settings, { ...row, stock_waste_pct: '3.00' })).toMatchObject({ stockWastePct: 3, autoIssue: false, stockMin: { '150-18': 200 }, reelWidths: [1000, 1200], payModes: ['Cash', 'GPay'] });
+    // an older server row without these columns leaves the defaults alone
+    expect(applySettingsRow(emptyData().settings, { business_name: 'HP' })).toMatchObject({ stockWastePct: 5, autoIssue: true, payModes: ['Cash', 'UPI', 'Bank transfer', 'Cheque', 'Other'] });
   });
 
   it('company settings and price list rows round-trip', () => {
@@ -95,13 +122,16 @@ describe('merge3', () => {
 describe('withUuidIds', () => {
   it('gives every record a UUID and keeps the links', () => {
     const { data, changed } = withUuidIds(sample());
-    expect(changed).toBe(7);
+    expect(changed).toBe(9); // + the reel and its movement
     const c = data.customers[0].id;
     const b = data.boxes[0].id;
     expect([c, b, data.orders[0].id, data.orders[0].items[0].id, data.orders[0].payments[0].id, data.web.zones[0].id].every(isUuid)).toBe(true);
     expect(data.boxes[0].customerId).toBe(c);
     expect(data.orders[0].customerId).toBe(c);
     expect(data.orders[0].items[0].boxId).toBe(b);
+    expect(isUuid(data.reels[0].id) && isUuid(data.stockMoves[0].id)).toBe(true);
+    expect(data.stockMoves[0].reelId).toBe(data.reels[0].id);
+    expect(data.stockMoves[0].orderId).toBe(data.orders[0].id);
     expect(withUuidIds(data).changed).toBe(0);
   });
 });

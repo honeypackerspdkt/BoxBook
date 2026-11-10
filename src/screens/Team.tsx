@@ -113,7 +113,7 @@ export function Team() {
           <UserPlus size={18} /> Invite someone
         </button>
         <p className="mt-3 px-1 text-[12.5px] text-muted-foreground">
-          They install BoxBook, open More → Cloud sync and sign in with the mobile number (SMS code) or e-mail you invited. They then join your business with the role you chose.
+          They open BoxBook (the app, or the web version) and sign in under More → Cloud sync with the e-mail (or mobile number) you invited. They then join your business with the role you chose.
         </p>
       </Page>
 
@@ -195,7 +195,7 @@ function InviteSheet({ open, onClose, onDone }: { open: boolean; onClose: () => 
   return (
     <Sheet open={open} onClose={onClose} title="Invite someone">
       <div className="space-y-4">
-        <Segmented<'mobile' | 'email'> value={by} onChange={setBy} options={[{ value: 'mobile', label: 'Mobile number' }, { value: 'email', label: 'E-mail' }]} />
+        <Segmented<'mobile' | 'email'> value={by} onChange={setBy} options={[{ value: 'mobile', label: 'WhatsApp number' }, { value: 'email', label: 'E-mail' }]} />
         {by === 'mobile' ? (
           <Field label="Mobile number">
             <div className="flex items-center gap-2">

@@ -4,7 +4,8 @@ import { emptyData, isNative, loadData, saveData } from './lib/storage';
 import { backupName, saveBackupOnDevice, toJson } from './lib/backup';
 import { driveSession, uploadDriveBackup } from './lib/drive';
 import { todayISO, uid } from './lib/format';
-import type { AppData, Customer, Enquiry, Order, Product, SavedBox, Settings, WebShop } from './lib/types';
+import type { AppData, Customer, Enquiry, Order, Product, Reel, SavedBox, Settings, StockMove, StockMoveKind, WebShop } from './lib/types';
+import { allocationMessage, planAllocation, stockAlerts } from './lib/stock';
 import { CloudController, type CloudStatus } from './lib/cloud/controller';
 import { withUuidIds } from './lib/cloud/migrate';
 import { arrivalText, arrivals, markSeen } from './lib/inbox';
@@ -19,6 +20,18 @@ interface Store {
   deleteOrder: (id: string) => void;
   upsertBox: (b: Omit<SavedBox, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }) => SavedBox;
   deleteBox: (id: string) => void;
+  upsertReel: (r: Partial<Reel> & Pick<Reel, 'number' | 'bf' | 'gsm' | 'width' | 'weightIn'>) => Reel;
+  /** Removes the reel and its movements. */
+  deleteReel: (id: string) => void;
+  /** `kg` is signed: negative takes paper off the reel. */
+  addStockMove: (m: { reelId: string; kind: StockMoveKind; kg: number; orderId?: string; note?: string }) => StockMove;
+  deleteStockMove: (id: string) => void;
+  /**
+   * Issues the paper an order still needs from the reels when all of it is in stock (per grade); reports what is short.
+   * Does nothing unless the order is confirmed, in production or ready. `force` ignores the "issue automatically" setting.
+   * Returns a message to show the user ('' when there was nothing to do).
+   */
+  autoIssue: (order: Order, force?: boolean) => string;
   updateSettings: (patch: Partial<Settings>) => void;
   updateWeb: (web: WebShop) => void;
   /** Inbox: website orders looked at on this phone. */
@@ -51,7 +64,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const toast = useCallback((msg: string) => {
     setToastMsg(msg);
     window.clearTimeout(toastTimer.current);
-    toastTimer.current = window.setTimeout(() => setToastMsg(''), 2600);
+    toastTimer.current = window.setTimeout(() => setToastMsg(''), 2600 + Math.min(5000, msg.length * 40));
   }, []);
 
   const scheduleSave = useCallback(() => {
@@ -241,6 +254,48 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const deleteBox = (id: string) => commit((d) => ({ ...d, boxes: d.boxes.filter((b) => b.id !== id) }));
 
+  const upsertReel: Store['upsertReel'] = (r) => {
+    const existing = r.id ? dataRef.current.reels.find((x) => x.id === r.id) : undefined;
+    const rec: Reel = {
+      supplier: '',
+      receivedAt: todayISO(),
+      rate: 0,
+      note: '',
+      ...existing,
+      ...r,
+      id: existing?.id || uid(),
+      createdAt: existing?.createdAt || now(),
+      updatedAt: now(),
+    };
+    commit((d) => ({ ...d, reels: existing ? d.reels.map((x) => (x.id === rec.id ? rec : x)) : [rec, ...d.reels] }));
+    return rec;
+  };
+
+  const deleteReel = (id: string) => commit((d) => ({ ...d, reels: d.reels.filter((r) => r.id !== id), stockMoves: d.stockMoves.filter((m) => m.reelId !== id) }));
+
+  const addStockMove: Store['addStockMove'] = (m) => {
+    const order = m.orderId ? dataRef.current.orders.find((o) => o.id === m.orderId) : undefined;
+    const stamp = now();
+    const rec: StockMove = { id: uid(), reelId: m.reelId, date: stamp, kind: m.kind, kg: m.kg, orderId: m.orderId, orderNo: order?.number, note: m.note || '', createdAt: stamp, updatedAt: stamp };
+    commit((d) => ({ ...d, stockMoves: [rec, ...d.stockMoves] }));
+    return rec;
+  };
+
+  const deleteStockMove = (id: string) => commit((d) => ({ ...d, stockMoves: d.stockMoves.filter((m) => m.id !== id) }));
+
+  const autoIssue: Store['autoIssue'] = (order, force = false) => {
+    const d = dataRef.current;
+    if (!(force || d.settings.autoIssue)) return '';
+    if (order.status !== 'confirmed' && order.status !== 'production' && order.status !== 'ready') return '';
+    const plan = planAllocation(order, d.reels, d.stockMoves, d.settings.stockWastePct);
+    const stamp = now();
+    const added: StockMove[] = plan.moves.map((m) => ({ id: uid(), reelId: m.reelId, date: stamp, kind: 'issue', kg: m.kg, orderId: order.id, orderNo: order.number, note: 'Automatic', createdAt: stamp, updatedAt: stamp }));
+    if (added.length) commit((x) => ({ ...x, stockMoves: [...added, ...x.stockMoves] }));
+    const touched = new Set(plan.issued.map((n) => n.key));
+    const lowAfter = stockAlerts(d.reels, [...added, ...d.stockMoves], [], d.settings.stockMin, 0).low.filter((l) => touched.has(l.key));
+    return allocationMessage(plan, lowAfter);
+  };
+
   const updateSettings = (patch: Partial<Settings>) => commit((d) => ({ ...d, settings: { ...d.settings, ...patch } }));
 
   const updateWeb = (web: WebShop) => commit((d) => ({ ...d, web }));
@@ -289,7 +344,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   return (
     <Ctx.Provider
-      value={{ data, ready, upsertCustomer, deleteCustomer, upsertOrder, deleteOrder, upsertBox, deleteBox, updateSettings, updateWeb, markInboxSeen, setEnquiryStatus, upsertProduct, deleteProduct, replaceAll, backupNow, toast, toastMsg, cloud, cloudStatus }}
+      value={{ data, ready, upsertCustomer, deleteCustomer, upsertOrder, deleteOrder, upsertBox, deleteBox, upsertReel, deleteReel, addStockMove, deleteStockMove, autoIssue, updateSettings, updateWeb, markInboxSeen, setEnquiryStatus, upsertProduct, deleteProduct, replaceAll, backupNow, toast, toastMsg, cloud, cloudStatus }}
     >
       {children}
     </Ctx.Provider>

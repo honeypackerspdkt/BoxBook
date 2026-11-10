@@ -23,4 +23,9 @@ export const defaultCompany: CompanySettings = {
   currency: '₹',
   // GST on corrugated boxes (HSN 4819) is 5% from 22 Sep 2025.
   defaults: { overhead: 0, profitPct: 25, taxPct: 5 },
+  stockWastePct: 5,
+  autoIssue: true,
+  stockMin: {},
+  reelWidths: [],
+  payModes: ['Cash', 'UPI', 'Bank transfer', 'Cheque', 'Other'],
 };

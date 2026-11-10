@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calcBox, emptyLayers, estimate } from './calc';
+import { calcBox, emptyLayers, estimate, layerGrams } from './calc';
 import type { BoxSpec, Ply } from './types';
 
 /** Literal port of the original eBox BoxWeight.onCreate maths, used as the oracle. */
@@ -55,5 +55,25 @@ describe('estimate', () => {
     expect(e.profit).toBe(300);
     expect(e.tax).toBeCloseTo(270);
     expect(e.totalWithTax).toBeCloseTo(1770);
+  });
+});
+
+describe('layerGrams', () => {
+  const spec: BoxSpec = {
+    length: 300,
+    width: 200,
+    height: 150,
+    ply: 3,
+    perLayer: true,
+    layers: [{ gsm: 150, bf: 18, price: 42 }, { gsm: 120, bf: 16, price: 36 }, { gsm: 150, bf: 18, price: 42 }, ...emptyLayers().slice(3)],
+  };
+  it('adds up to the box weight', () => {
+    expect(layerGrams(spec).reduce((t, l) => t + l.grams, 0)).toBeCloseTo(calcBox(spec).weight, 1);
+  });
+  it('gives the hand-worked figures (area 1050 × 370 mm, flute × 1.4)', () => {
+    const [top, flute, bottom] = layerGrams(spec);
+    expect(top.grams).toBeCloseTo(58.275, 3);
+    expect(flute.grams).toBeCloseTo(65.268, 3);
+    expect(bottom.grams).toBeCloseTo(58.275, 3);
   });
 });

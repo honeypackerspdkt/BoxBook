@@ -54,7 +54,7 @@ export async function verifyCode(email: string, code: string) {
 /** Indian mobile number (10 digits, any spaces / +91) → E.164 for Supabase. */
 export const e164 = (mobile: string) => `+91${mobile.replace(/\D/g, '').slice(-10)}`;
 
-/** SMS code to a mobile number (sent through MSG91 by the send-sms-msg91 hook). */
+/** Code to a mobile number, delivered on WhatsApp by the send-otp-whatsapp hook (Supabase's Send SMS hook). */
 export async function sendPhoneCode(mobile: string) {
   const { error } = await getClient().auth.signInWithOtp({ phone: e164(mobile), options: { shouldCreateUser: true } });
   if (error) fail(error);
@@ -100,6 +100,13 @@ export async function myProfile(): Promise<Profile | null> {
   if (!data || !data.is_active) return null;
   const org = data.organizations as unknown as { name: string } | null;
   return { orgId: data.organization_id, orgName: org?.name || '', role: data.role, name: data.display_name };
+}
+
+/** Whether this database already has its business (the website's public company details; readable before sign-in). */
+export async function businessExists(): Promise<boolean> {
+  const { data, error } = await getClient().from('public_business').select('org_id').limit(1);
+  if (error) fail(error);
+  return (data || []).length > 0;
 }
 
 export async function createOrganization(name: string, displayName: string): Promise<string> {
@@ -213,4 +220,35 @@ export async function updateMember(id: string, patch: { role?: string; is_active
 export async function setOrderStatus(orderId: string, status: string, delivery?: Record<string, unknown>) {
   const { error } = await getClient().rpc('set_order_status', { p_order: orderId, p_status: status, p_delivery: delivery ?? null });
   if (error) fail(error);
+}
+
+/* ───────────── ready-made box stock (migration 13) ───────────── */
+
+export type BoxStockKind = 'made' | 'sold' | 'returned' | 'correction';
+export interface BoxStockMove {
+  id: string;
+  kind: BoxStockKind;
+  qty: number;
+  note: string;
+  orderId: string | null;
+  createdAt: string;
+}
+
+/** Boxes made (+) or a correction (±) for a product; returns the new count. Starts stock keeping for a made-to-order product. */
+export async function boxStockChange(productId: string, kind: 'made' | 'correction', qty: number, note = ''): Promise<number> {
+  const { data, error } = await getClient().rpc('box_stock_change', { p_product: productId, p_kind: kind, p_qty: Math.trunc(qty), p_note: note });
+  if (error) fail(error);
+  return Number(data);
+}
+
+/** The latest stock changes of one product, newest first. */
+export async function boxStockMoves(productId: string, limit = 50): Promise<BoxStockMove[]> {
+  const { data, error } = await getClient()
+    .from('box_stock_moves')
+    .select('id, kind, qty, note, order_id, created_at')
+    .eq('product_id', productId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) fail(error);
+  return (data || []).map((r) => ({ id: r.id, kind: r.kind, qty: Number(r.qty), note: r.note || '', orderId: r.order_id, createdAt: r.created_at }));
 }
