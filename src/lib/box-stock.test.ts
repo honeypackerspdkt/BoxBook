@@ -23,3 +23,32 @@ describe('box stock', () => {
     expect(boxStockSummary([p('a', 0), p('b', 10, 20), p('c', 5, 20)])).toBe('2 low · 1 out');
   });
 });
+
+import { boxFillPct, boxStockByPly, boxStockTotals, perBoxPrice } from './box-stock';
+
+describe('box stock tiles and totals', () => {
+  const packs = [{ qty: 200, price: 1160 }, { qty: 50, price: 290 }];
+  it('values stock at the smallest pack price per box', () => {
+    expect(perBoxPrice({ packs })).toBeCloseTo(5.8);
+    expect(perBoxPrice({ packs: [] })).toBe(0);
+    expect(boxStockTotals([{ stockQty: 100, packs }, { stockQty: null, packs }, { stockQty: -3, packs }])).toEqual({ boxes: 100, kept: 2, value: 580 });
+  });
+  it('fills the bar against twice the alert level, else the fullest box', () => {
+    expect(boxFillPct({ stockQty: 50, stockMin: 50 }, 999)).toBe(50);
+    expect(boxFillPct({ stockQty: 300, stockMin: 50 }, 999)).toBe(100);
+    expect(boxFillPct({ stockQty: 25, stockMin: null }, 100)).toBe(25);
+    expect(boxFillPct({ stockQty: 0, stockMin: null }, 0)).toBe(0);
+  });
+  it('groups kept boxes by ply', () => {
+    const g = boxStockByPly([
+      { name: 'b', ply: 5, stockQty: 10, stockMin: null, active: true },
+      { name: 'a', ply: 3, stockQty: 40, stockMin: null, active: true },
+      { name: 'c', ply: 3, stockQty: 0, stockMin: null, active: true },
+      { name: 'd', ply: 3, stockQty: null, stockMin: null, active: true },
+    ] as never[]);
+    expect(g.map((x) => [x.ply, x.items.map((i: { name: string }) => i.name), x.boxes, x.max])).toEqual([
+      [3, ['c', 'a'], 40, 40],
+      [5, ['b'], 10, 10],
+    ]);
+  });
+});
