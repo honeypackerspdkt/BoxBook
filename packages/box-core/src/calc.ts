@@ -141,3 +141,6 @@ export function specLabel(s: BoxSpec): string {
 
 /** Orders that are confirmed but not yet delivered. */
 export const isOpen = (o: Order) => o.status === 'confirmed' || o.status === 'production' || o.status === 'ready';
+
+/** Boxes on an order line: website pack lines count packs (qty × boxes per pack), other lines count boxes. */
+export const itemBoxes = (it: { qty: number; packQty?: number }): number => (Number(it.qty) || 0) * (it.packQty && it.packQty > 0 ? it.packQty : 1);

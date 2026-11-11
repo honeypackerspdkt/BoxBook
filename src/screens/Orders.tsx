@@ -5,7 +5,7 @@ import { cloudConfigured } from '../lib/cloud/config';
 import { usePerms, useStore } from '../store';
 import { canMoveStatus } from '../lib/roles';
 import { useNav } from '../nav';
-import { calcBox, estimate, isOpen, orderTotals, specLabel } from '@honeypackers/box-core/calc';
+import { calcBox, estimate, isOpen, itemBoxes, orderTotals, specLabel } from '@honeypackers/box-core/calc';
 import { fmtDate, money, money0, num, relDays, telHref, todayISO, uid, waHref } from '../lib/format';
 import { orderText, shareText } from '../lib/share';
 import { shareFile } from '../lib/sharefile';
@@ -191,7 +191,7 @@ export function OrdersList() {
                     badge={o.number}
                     flag={isLate ? 'Late' : STATUS[o.status].label}
                     flagTone={isLate ? 'bad' : o.status === 'cancelled' ? 'muted' : o.status === 'delivered' ? 'good' : 'warn'}
-                    big={p.money ? money0(t.total, cur) : num(o.items.reduce((n, i) => n + i.qty, 0), 0)}
+                    big={p.money ? money0(t.total, cur) : num(o.items.filter((i) => i.spec).reduce((n, i) => n + itemBoxes(i), 0), 0)}
                     unit={p.money ? undefined : 'pcs'}
                     left={fmtDate(o.date)}
                     right={p.money && t.balance > 0.5 && o.status !== 'quote' ? <span className="font-semibold text-bad">{money0(t.balance, cur)} due</span> : o.source === 'web' ? 'Online' : 'Manual'}

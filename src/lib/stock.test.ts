@@ -43,6 +43,10 @@ describe('paper an order needs', () => {
     expect(need[0]).toMatchObject({ gsm: 150, bf: 18, kg: 116.55, minWidth: 370 }); // two liners
     expect(need[1]).toMatchObject({ gsm: 120, bf: 16, kg: 65.268 });
   });
+  it('counts boxes on website pack lines (qty = packs × boxes per pack)', () => {
+    // 2 packs of 500 = 1000 boxes: the same paper as a 1000-box line
+    expect(paperNeed([{ ...item(2), packQty: 500 }])).toEqual(paperNeed([item(1000)]).map((n) => ({ ...n })));
+  });
   it('adds several items and keeps the widest deckle', () => {
     const wide = spec({ width: 300 }); // deckle 470
     const need = paperNeed([item(1000, spec(), 'A'), item(500, wide, 'B')]);

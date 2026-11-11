@@ -2,7 +2,7 @@
  * Paper-reel stock. A reel's balance is what came in plus every movement against it (issue, return, waste, adjust).
  * The paper an order needs comes from the box spec on its items: kg per layer grade, and the narrowest reel that can be cut.
  */
-import { deckleAllowance, isOpen, layerGrams } from '@honeypackers/box-core/calc';
+import { deckleAllowance, isOpen, itemBoxes, layerGrams } from '@honeypackers/box-core/calc';
 import type { Order, OrderItem, Reel, StockMove } from './types';
 
 const r3 = (n: number) => Math.round(n * 1000) / 1000;
@@ -39,7 +39,7 @@ export function paperNeed(items: OrderItem[]): PaperNeed[] {
       if (!(l.gsm > 0)) continue;
       const key = gradeKey(l.gsm, l.bf);
       const cur = map.get(key) ?? { key, gsm: l.gsm, bf: l.bf, kg: 0, minWidth: 0, items: [] };
-      cur.kg += (l.grams * it.qty) / 1000;
+      cur.kg += (l.grams * itemBoxes(it)) / 1000;
       cur.minWidth = Math.max(cur.minWidth, deckle);
       const name = it.description || 'Item';
       if (!cur.items.includes(name)) cur.items.push(name);

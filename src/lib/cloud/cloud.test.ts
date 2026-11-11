@@ -54,6 +54,16 @@ describe('mapping', () => {
     expect(applyRow(d, 'reels', { id: 'r1', deleted_at: 'x' }).reels).toEqual([]);
   });
 
+  it('keeps the boxes per pack of website pack lines', () => {
+    const d = sample();
+    const back = applyRow(d, 'order_items', { id: 'w1', order_id: 'o1', description: '3 ply box (pack of 50)', qty: '2.000', rate: '436.0000', pack_qty: 50, position: 9 });
+    const it = back.orders[0].items.find((x) => x.id === 'w1')!;
+    expect(it).toMatchObject({ qty: 2, packQty: 50 });
+    expect(rowsOf(back).get('order_items:w1')?.row).toMatchObject({ qty: 2, pack_qty: 50 });
+    // ordinary lines have no pack size
+    expect(back.orders[0].items.find((x) => x.id !== 'w1')?.packQty).toBeUndefined();
+  });
+
   it('deleted rows remove the record', () => {
     const d = sample();
     expect(applyRow(d, 'payments', { id: 'p1', order_id: 'o1', deleted_at: 'x' }).orders[0].payments).toEqual([]);

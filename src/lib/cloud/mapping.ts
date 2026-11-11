@@ -81,6 +81,7 @@ export const itemRow = (o: Order, it: OrderItem, position: number): Row => ({
   unit: orNull(it.unit),
   spec: it.spec ?? null,
   box_id: it.boxId || null,
+  ...(it.packQty ? { pack_qty: it.packQty } : {}),
   created_at: o.createdAt || null,
 });
 
@@ -263,6 +264,7 @@ export function applyRow(d: AppData, table: string, row: Row): AppData {
             ...(row.unit ? { unit: str(row.unit) } : {}),
             ...(row.spec ? { spec: row.spec as OrderItem['spec'] } : {}),
             ...(row.box_id ? { boxId: str(row.box_id) } : {}),
+            ...(num(row.pack_qty) > 0 ? { packQty: num(row.pack_qty) } : {}),
           };
           const pos = Math.max(0, Math.min(num(row.position), others.length));
           next = { ...owner, items: [...others.slice(0, pos), it, ...others.slice(pos)] };

@@ -70,6 +70,8 @@ export interface OrderItem {
   unit?: string;
   spec?: BoxSpec;
   boxId?: string;
+  /** Website pack lines: boxes per pack (qty then counts packs). Missing = qty counts boxes. */
+  packQty?: number;
 }
 
 export interface Payment {
