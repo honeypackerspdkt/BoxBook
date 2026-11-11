@@ -202,6 +202,9 @@ const SIDES: Record<BoxSide, { axis: number; side: 0 | 1; tl: number; tr: number
   bottom: { axis: 1, side: 0, tl: vtx(0, 0, 1), tr: vtx(1, 0, 1), bl: vtx(0, 0, 0) },
 };
 
+/** The corners of each side (vertex numbers), for drawing artwork onto a 3D model. */
+export const SIDE_CORNERS: Readonly<typeof SIDES> = SIDES;
+
 /** Size of a side in mm (width × height as you look at it). */
 export function sideSize(d: Dims, s: BoxSide): { width: number; height: number } {
   if (s === 'front' || s === 'back') return { width: d.length, height: d.height };

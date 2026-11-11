@@ -171,7 +171,7 @@ One codebase → Android + iOS via **Capacitor 7 + React 19 + Vite 7 + TypeScrip
   per-face visibility + shade, 12 edges (hidden ones flagged), and `dimensionLines()` which picks, per axis, the outermost visible
   silhouette edge and offsets a dimension line outside the box so the numbers stay readable from any angle (skipped when an axis points at the viewer).
   Tested in `lib/box3d.test.ts`.
-- `Box3D.tsx` — SVG renderer (no 3D library). Drag / arrow keys rotate, play button auto-turns (respects reduced motion), reset button.
+- `Box3D.tsx` — realistic 3D carton (`src/lib/carton3d.ts`, three.js pinned 0.186.1, the same file as honeypackers.in's `src/lib/carton3d.ts`: keep them identical) drawn on a canvas behind the SVG, which keeps the size lines and takes the drag; the camera matches box-core `project()`. Loaded lazily; nothing drawn until it is ready, the flat SVG box only without WebGL or after 5 s. Disposed when the screen closes. Drag / arrow keys rotate, play button auto-turns (respects reduced motion), reset button.
   Colours are `color-mix` of the hub `--primary`, so it follows light/dark. Shows "L 300 / H 150 / W 200" labels + a caption with the sizes.
 - Used in `screens/Calculator.tsx` under the size inputs, so it appears both while creating a box and in a saved box, and updates as you type.
 
