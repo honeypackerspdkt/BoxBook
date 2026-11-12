@@ -343,10 +343,11 @@ export function buildCarton(L: number, H: number, Wd: number, opts: { tape?: boo
   const md = Math.min(Wd / 2, L / 2 - T);
   const minor = (s: 1 | -1) => {
     const pv = new Group();
-    pv.position.set((s * L) / 2, H / 2 - T / 2, 0);
+    // hinge on the side wall's top inside edge (the fold), so the flap stays joined to the wall as it opens
+    pv.position.set(s * (L / 2 - T), H / 2 - T, 0);
     // the fold (outer end) is kraft like the side wall below it; the free end is a cut edge
     const m = mesh(panel(md, T, sw), s > 0 ? [out(T, sw), edgeMat(sw), out(md, sw), inn(md, sw), P, P] : [edgeMat(sw), out(T, sw), out(md, sw), inn(md, sw), P, P]);
-    m.position.x = (-s * md) / 2;
+    m.position.set(-s * (md / 2 - T), T / 2, 0);
     pv.add(m);
     g.add(pv);
     return pv;
@@ -359,14 +360,15 @@ export function buildCarton(L: number, H: number, Wd: number, opts: { tape?: boo
   const fd = Wd / 2 - T * 0.2;
   const major = (s: 1 | -1) => {
     const pv = new Group();
-    pv.position.set(0, H / 2 + T / 2, (s * Wd) / 2);
+    // hinge on the front / back wall's top inside edge (the fold): no gap opens between flap and wall
+    pv.position.set(0, H / 2, s * (Wd / 2 - T));
     // the fold (outer side) is kraft like the wall below it; the ends and the middle edge are cut edges
     const m = mesh(panel(L, T, fd), [edgeMat(fd), edgeMat(fd), out(L, fd), inn(L, fd), s > 0 ? out(L, T) : edgeMat(L), s > 0 ? edgeMat(L) : out(L, T)]);
-    m.position.z = (-s * fd) / 2;
+    m.position.set(0, T / 2, -s * (fd / 2 - T));
     pv.add(m);
     if (tape) {
       const t = mesh(new BoxGeometry(L + 1, 0.5, tapeW / 2), k.tape, false);
-      t.position.set(0, T / 2 + 0.45, -s * (fd - tapeW / 4));
+      t.position.set(0, T + 0.45, -s * (fd - T - tapeW / 4));
       pv.add(t);
     }
     g.add(pv);
