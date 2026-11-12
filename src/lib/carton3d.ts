@@ -27,6 +27,7 @@ import {
   type Texture,
 } from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { SIDE_CORNERS, type BoxSide, type Dims, type View } from '@honeypackers/box-core/box3d';
 
 /**
@@ -130,13 +131,13 @@ function flutes(p: Palette): HTMLCanvasElement {
   cv.width = 64;
   cv.height = 32;
   const c = cv.getContext('2d')!;
-  c.fillStyle = p.dark;
+  c.fillStyle = p.lo;
   c.fillRect(0, 0, 64, 32);
   c.fillStyle = p.base;
-  c.fillRect(0, 0, 64, 6);
-  c.fillRect(0, 26, 64, 6);
+  c.fillRect(0, 0, 64, 7);
+  c.fillRect(0, 25, 64, 7);
   c.strokeStyle = p.hi;
-  c.lineWidth = 3;
+  c.lineWidth = 4;
   c.beginPath();
   for (let x = 0; x <= 64; x++) c.lineTo(x, 16 + Math.sin((x / 64) * Math.PI * 4) * 9);
   c.stroke();
@@ -240,7 +241,7 @@ function getKit(): Kit {
     board: { map: repeatTex(b.map, true), bump: repeatTex(b.bump, false) },
     inside: { map: repeatTex(i.map, true), bump: repeatTex(i.bump, false) },
     flute: repeatTex(flutes(p), true),
-    plain: new MeshStandardMaterial({ color: new Color(p.lo), roughness: 0.95 }),
+    plain: new MeshStandardMaterial({ color: new Color(p.lo).lerp(new Color(p.base), 0.5), roughness: 0.95 }),
     seam: new MeshStandardMaterial({ color: new Color(p.dark).multiplyScalar(0.6), roughness: 1 }),
     tape: new MeshPhysicalMaterial({
       color: new Color(p.lo).lerp(new Color(p.dark), 0.7),
@@ -318,18 +319,21 @@ export function buildCarton(L: number, H: number, Wd: number, opts: { tape?: boo
     return m;
   };
   const g = new Group();
+  // board panels with softly rounded edges (a fold, not a sharp seam)
+  const panel = (w: number, h: number, d: number) => new RoundedBoxGeometry(w, h, d, 2, Math.min(w, h, d) * 0.45);
 
-  // walls (BoxGeometry face order: +x, -x, +y, -y, +z, -z)
+  // walls (face order: +x, -x, +y, -y, +z, -z); every face you can see from outside is the kraft liner, so the
+  // corners and the folds into the flaps blend; only the cut edges show the fluting
   const sw = Wd - 2 * T;
-  const front = mesh(new BoxGeometry(L, H, T), [P, P, edgeMat(L), P, out(L, H), inn(L, H)]);
+  const front = mesh(panel(L, H, T), [out(T, H), out(T, H), edgeMat(L), out(L, T), out(L, H), inn(L, H)]);
   front.position.set(0, 0, Wd / 2 - T / 2);
-  const back = mesh(new BoxGeometry(L, H, T), [P, P, edgeMat(L), P, inn(L, H), out(L, H)]);
+  const back = mesh(panel(L, H, T), [out(T, H), out(T, H), edgeMat(L), out(L, T), inn(L, H), out(L, H)]);
   back.position.set(0, 0, -Wd / 2 + T / 2);
-  const right = mesh(new BoxGeometry(T, H - T, sw), [out(sw, H), inn(sw, H), edgeMat(sw), P, P, P]);
+  const right = mesh(panel(T, H - T, sw), [out(sw, H), inn(sw, H), edgeMat(sw), out(T, sw), P, P]);
   right.position.set(L / 2 - T / 2, -T / 2, 0);
-  const left = mesh(new BoxGeometry(T, H - T, sw), [inn(sw, H), out(sw, H), edgeMat(sw), P, P, P]);
+  const left = mesh(panel(T, H - T, sw), [inn(sw, H), out(sw, H), edgeMat(sw), out(T, sw), P, P]);
   left.position.set(-L / 2 + T / 2, -T / 2, 0);
-  const bottom = mesh(new BoxGeometry(L - 2 * T, T, sw), [P, P, inn(L, Wd), out(L, Wd), P, P]);
+  const bottom = mesh(panel(L - 2 * T, T, sw), [P, P, inn(L, Wd), out(L, Wd), P, P]);
   bottom.position.set(0, -H / 2 + T / 2, 0);
   const seam = mesh(new BoxGeometry(L - 2 * T, 0.1, Math.max(0.6, T * 0.3)), k.seam, false);
   seam.position.set(0, -H / 2 - 0.05, 0);
@@ -340,7 +344,8 @@ export function buildCarton(L: number, H: number, Wd: number, opts: { tape?: boo
   const minor = (s: 1 | -1) => {
     const pv = new Group();
     pv.position.set((s * L) / 2, H / 2 - T / 2, 0);
-    const m = mesh(new BoxGeometry(md, T, sw), s > 0 ? [P, edgeMat(sw), out(md, sw), inn(md, sw), P, P] : [edgeMat(sw), P, out(md, sw), inn(md, sw), P, P]);
+    // the fold (outer end) is kraft like the side wall below it; the free end is a cut edge
+    const m = mesh(panel(md, T, sw), s > 0 ? [out(T, sw), edgeMat(sw), out(md, sw), inn(md, sw), P, P] : [edgeMat(sw), out(T, sw), out(md, sw), inn(md, sw), P, P]);
     m.position.x = (-s * md) / 2;
     pv.add(m);
     g.add(pv);
@@ -355,7 +360,8 @@ export function buildCarton(L: number, H: number, Wd: number, opts: { tape?: boo
   const major = (s: 1 | -1) => {
     const pv = new Group();
     pv.position.set(0, H / 2 + T / 2, (s * Wd) / 2);
-    const m = mesh(new BoxGeometry(L, T, fd), [P, P, out(L, fd), inn(L, fd), s > 0 ? P : edgeMat(L), s > 0 ? edgeMat(L) : P]);
+    // the fold (outer side) is kraft like the wall below it; the ends and the middle edge are cut edges
+    const m = mesh(panel(L, T, fd), [edgeMat(fd), edgeMat(fd), out(L, fd), inn(L, fd), s > 0 ? out(L, T) : edgeMat(L), s > 0 ? edgeMat(L) : out(L, T)]);
     m.position.z = (-s * fd) / 2;
     pv.add(m);
     if (tape) {
